@@ -84,7 +84,7 @@ h1 span{background:linear-gradient(90deg,#7CFC00,#22d3ee,#a78bfa);-webkit-backgr
   <div class="card">
     <h1>MTB <span>MANIA</span></h1>
     <div class="sub">ELASTO-STYLE MOUNTAIN BIKE TRIALS <span id="verTag"></span></div>
-    <div class="desc">Real bike physics, 13 hand-built levels. Throttle, brake and move your weight — that is the whole game.<br><br>Don't smash your helmet. Grab stars. Cross the flag.</div>
+    <div class="desc">Real bike physics, 15 hand-built levels. Throttle, brake and move your weight — that is the whole game.<br><br>Don't smash your helmet. Grab stars. Cross the flag.</div>
     <div class="desc" style="margin-top:12px">
       <span class="kbd">▲ / W</span> pedal &nbsp;
       <span class="kbd">▼ / S</span> brake &nbsp;
@@ -138,7 +138,7 @@ h1 span{background:linear-gradient(90deg,#7CFC00,#22d3ee,#a78bfa);-webkit-backgr
 // MTB MANIA — full rewrite. Rigid-body bike with suspension wheels,
 // tire forces (drive/brake/grip), rider weight-shift torque, validated levels.
 // =====================================================================
-const VERSION='0.8.2';
+const VERSION='0.9.0';
 const FLIP_MAP=/(\?|&)flip\b/.test(location.search);
 const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
 let W=0,H=0,DPR=1;
@@ -510,7 +510,61 @@ function buildLevels(){
     const signs=[{x:bridgeX-670,text:'SEESAW BRIDGE — KEEP GAS'}];
     L.push({name:'13 — Balance Beast',hint:'Wall, chute and whoops around the seesaw bridge — the pit is too wide to jump. Keep gas and hold on.',par:34,start:{x:60},grounds,extras,seesaws,stars,signs,finish:{x:13500},killY:1900,theme:DUSK});
   }
-  // 14 — Flip Lab (dev map via ?flip): four drops, hold a lean the whole fall
+  // 14 — Flip Canyon (kicker drops for front/back flips + five seesaws)
+  {
+    const d=(x,x0,depth,slope)=>x>x0?Math.min(depth,(x-x0)*slope):0;
+    const f=x=>520+34*Math.sin(x*0.0028)+12*Math.sin(x*0.01)
+      +bump(x,1780,230,140)
+      +d(x,1980,620,0.62)
+      +bump(x,3680,230,150)
+      +d(x,3880,980,0.66)
+      +bump(x,6080,230,160)
+      +d(x,6280,1500,0.7)
+      +bump(x,9140,230,170)
+      +d(x,9340,2000,0.74);
+    const grounds=[P(-400,13400,50,f)];
+    const extras=[];
+    const seesaws=[seesaw(950,f(950),110),seesaw(1300,f(1300),110),seesaw(3180,f(3180),110),seesaw(5600,f(5600),110),seesaw(8700,f(8700),110)];
+    const st=(x,o)=>[x,f(x)-(o||55)];
+    const stars=[st(600),st(1600),st(1780,60),st(2350,60),st(2900,60),st(3500),st(3680,60),st(4300,60),st(4900,60),st(5400),st(6080,60),st(6600,60),st(7300,60),st(8000,60),st(8500),st(9140,60),st(9800,60),st(10700,60),st(11600,60),st(12300),st(12800)];
+    const signs=[
+      {x:1650,text:'FLIP KICKER — HOLD GAS, THEN LEAN IN THE AIR'},
+      {x:5400,text:'BACKFLIP (◀) / FRONTFLIP (▶) — LAND ALONG THE SLOPE'},
+      {x:9000,text:'DOUBLE = 2000 • TRIPLE = 4500'}
+    ];
+    L.push({name:'14 — Flip Canyon',hint:'Flip park: launch every drop and hold a lean — doubles and triples pay. Five seesaws between the shelves.',par:32,start:{x:60},grounds,extras,seesaws,stars,signs,finish:{x:13100},killY:6200,theme:CANYON});
+  }
+  // 15 — Seesaw Skyline (five seesaws + launch ramp and long drops)
+  {
+    const d=(x,x0,depth,slope)=>x>x0?Math.min(depth,(x-x0)*slope):0;
+    const base=x=>540+32*Math.sin(x*0.003)+14*Math.sin(x*0.011)
+      +bump(x,1480,230,150)
+      +d(x,1680,450,0.6)
+      +bump(x,3200,230,160)
+      +d(x,3400,700,0.62)
+      -Math.min(192,(x>4530?(x-4530)*0.32:0))
+      +d(x,5200,1050,0.65)
+      +bump(x,7600,230,150)
+      +d(x,7800,900,0.68)
+      +bump(x,9700,230,170)
+      +d(x,9900,1600,0.7)
+      +10*Math.sin((x-12100)*0.05)*clamp((12800-x)/800,0,1);
+    const pads=[2700,7200,9300,12500];
+    const padK=(x,c,w)=>{ const dd=Math.abs(x-c); if(dd<=w)return 0; const t=Math.min(1,(dd-w)/180); return t*t*(3-2*t); };
+    const f=x=>{ let y=base(x); for(const c of pads){ const k=padK(x,c,170); if(k<1)y=y*k+base(c)*(1-k); } return y; };
+    const grounds=[P(-400,13300,50,f)];
+    const extras=[];
+    const seesaws=[seesaw(2700,f(2700),110),seesaw(7200,f(7200),110),seesaw(9300,f(9300),110),seesaw(12500,f(12500),110)];
+    const st=(x,o)=>[x,f(x)-(o||55)];
+    const stars=[st(650),st(1200),st(1480,60),st(2000,60),st(2300,60),st(2950),st(3200,60),st(3800,60),st(4200,60),st(4900,60),st(5800,60),st(6300,60),st(6750,60),st(7600,60),st(8200,60),st(8700,60),st(9150),st(10000,60),st(10800,60),st(11600,60),st(12300),st(12800)];
+    const signs=[
+      {x:1400,text:'KICKER — KEEP GAS FOR BIG AIR'},
+      {x:4700,text:'LAUNCH RAMP — HOLD GAS TO THE LIP'},
+      {x:9200,text:'SEESAW — KEEP GAS AND ROLL OVER'}
+    ];
+    L.push({name:'15 — Seesaw Skyline',hint:'Four teeters between launch ramps and long drops — front and back flips pay.',par:44,start:{x:60},grounds,extras,seesaws,stars,signs,finish:{x:12900},killY:5600,theme:DUSK});
+  }
+  // 16 — Flip Lab (dev map via ?flip): four drops, hold a lean the whole fall
   if(FLIP_MAP){
     const y1=950,y2=2315,y3=4535,y4=7615;
     const grounds=[P(-400,800,50,()=>420),P(850,3600,50,()=>y1),P(3650,7600,50,()=>y2),P(7650,12600,50,()=>y3),P(12650,18600,50,()=>y4)];
@@ -521,7 +575,7 @@ function buildLevels(){
       {x:7700,text:'DROP 3: TRIPLE = 4500'},
       {x:12700,text:'DROP 4: QUAD = 8000'},
     ];
-    L.push({name:'14 — Flip Lab',hint:'Dev map: four drops. Hold gas and lean right the whole fall.',par:120,start:{x:60},grounds,extras:[],stars:[],signs,finish:{x:18000},killY:6200,theme:MEADOW,botOptional:true});
+    L.push({name:'16 — Flip Lab',hint:'Dev map: four drops. Hold gas and lean right the whole fall.',par:120,start:{x:60},grounds,extras:[],stars:[],signs,finish:{x:18000},killY:6200,theme:MEADOW,botOptional:true});
   }
   // finalize segments
   for(const l of L){

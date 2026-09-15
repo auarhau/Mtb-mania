@@ -138,7 +138,7 @@ h1 span{background:linear-gradient(90deg,#7CFC00,#22d3ee,#a78bfa);-webkit-backgr
 // MTB MANIA — full rewrite. Rigid-body bike with suspension wheels,
 // tire forces (drive/brake/grip), rider weight-shift torque, validated levels.
 // =====================================================================
-const VERSION='0.8.1';
+const VERSION='0.8.2';
 const FLIP_MAP=/(\?|&)flip\b/.test(location.search);
 const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
 let W=0,H=0,DPR=1;
@@ -310,12 +310,12 @@ function buildLevels(){
     const yT=topF(11580);
     const lipF=x=>yT-(x-11580)*0.5;
     const yL=lipF(11740);
-    const g4=x=>yL+110+(x>12000?60*Math.min(1,(x-12000)/240):0)+(x>12240?(x-12240)*0.08:0)+bump(x,13300,150,95)+(x>14000?12*Math.sin((x-14000)*0.05):0);
-    const grounds=[P(-400,9880,40,f4),P(9880,10680,40,wallF),P(10680,11580,50,topF),P(11580,11740,40,lipF),P(12000,14660,20,g4)];
+    const g4=x=>yL+110+(x>11890?60*Math.min(1,(x-11890)/240):0)+(x>12130?(x-12130)*0.08:0)+bump(x,13300,150,95)+(x>14000?12*Math.sin((x-14000)*0.05):0);
+    const grounds=[P(-400,9880,40,f4),P(9880,10680,40,wallF),P(10680,11580,50,topF),P(11580,11740,40,lipF),P(11890,14660,20,g4)];
     const st=(x,o)=>[x,(x<9880?f4(x):x<10680?wallF(x):x<11580?topF(x):x<11740?lipF(x):g4(x))-o];
     const stars=[st(700,50),st(1500,70),st(2400,50),st(3300,80),st(4200,50),st(4700,145),st(5200,60),st(6100,60),st(6900,60),st(7150,60),st(7500,60),st(7850,60),st(8250,60),st(8650,60),st(9000,60),st(9350,60),st(9700,60),st(9950,60),st(10350,60),st(10750,60),st(11250,60),st(11650,70),st(12300,60),st(13000,60),st(13300,140),st(13700,60),st(14500,60)];
     const signs=[];
-    L.push({name:'4 — Rock Garden',hint:'Rough rocks: wall, ridge, big kicker and a long gap.',par:48,start:{x:60},grounds,extras:[],stars,signs,finish:{x:14550},killY:2100,theme:ROCKY});
+    L.push({name:'4 — Rock Garden',hint:'Rough rocks: wall, ridge, big kicker and a gap jump.',par:48,start:{x:60},grounds,extras:[],stars,signs,finish:{x:14550},killY:2100,theme:ROCKY});
   }
   // 5 — The Wall (steep wall, ridge, gap, second wall, drop, whoops)
   {

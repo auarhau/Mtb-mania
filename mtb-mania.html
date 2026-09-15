@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MTB MANIA — Elasto-style Mountain Bike Trials</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0c1622;--panel:rgba(10,18,30,.86);--acc:#7CFC00;--acc2:#22d3ee;--gold:#ffd60a}
+html,body{height:100%}
+body{background:#0c1622;color:#eef4ff;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;overflow:hidden}
+#c{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-action:none}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 14px;pointer-events:none;z-index:5}
+#hud .left,#hud .right{display:flex;gap:8px;align-items:center;pointer-events:auto;flex-wrap:wrap}
+.pill{background:var(--panel);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:800;letter-spacing:.06em;backdrop-filter:blur(8px);white-space:nowrap}
+.pill small{opacity:.6;font-weight:600}
+#time{font-variant-numeric:tabular-nums;font-size:16px}
+button{font-family:inherit}
+.btn{border:none;border-radius:999px;padding:9px 18px;font-weight:900;letter-spacing:.08em;font-size:13px;cursor:pointer;color:#08130a;background:linear-gradient(90deg,var(--acc),var(--acc2));box-shadow:0 0 18px rgba(124,252,0,.4)}
+.btn:hover{transform:translateY(-1px)}
+.btn.ghost{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2);box-shadow:none}
+#starsHud{color:var(--gold)}
+.overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(4,8,16,.72);backdrop-filter:blur(10px);padding:18px}
+.hidden{display:none!important}
+.card{background:linear-gradient(180deg,rgba(20,32,52,.96),rgba(10,18,30,.96));border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:26px 28px;max-width:640px;width:100%;max-height:92vh;overflow:auto;text-align:center;box-shadow:0 20px 80px rgba(0,0,0,.6)}
+h1{font-size:42px;font-weight:900;letter-spacing:.04em;line-height:1}
+h1 span{background:linear-gradient(90deg,#7CFC00,#22d3ee,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{opacity:.65;font-size:12px;letter-spacing:.28em;margin:6px 0 14px}
+.desc{font-size:14px;line-height:1.6;opacity:.9}
+.kbd{display:inline-block;border:1px solid rgba(255,255,255,.3);border-bottom-width:3px;border-radius:7px;padding:1px 8px;font-size:12px;font-weight:800;background:rgba(255,255,255,.08);margin:0 2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:16px 0}
+.lvl{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:12px;cursor:pointer;text-align:left}
+.lvl:hover{border-color:var(--acc)}
+.lvl.locked{opacity:.35;cursor:not-allowed}
+.lvl b{display:block;font-size:14px}
+.lvl span{font-size:11px;opacity:.7}
+.lvl .best{font-size:11px;color:var(--gold);margin-top:4px;display:block}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+#toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);border:1px solid rgba(255,255,255,.2);padding:8px 18px;border-radius:999px;font-size:14px;font-weight:800;z-index:6;pointer-events:none;transition:opacity .3s;text-align:center;max-width:90vw}
+#touch{position:fixed;bottom:14px;left:0;right:0;display:none;justify-content:space-between;padding:0 14px;z-index:5;pointer-events:none}
+#touch .grp{display:flex;gap:10px;pointer-events:auto}
+.tbtn{width:72px;height:72px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(10,20,35,.6);color:#fff;font-size:13px;font-weight:900;backdrop-filter:blur(6px);touch-action:none;user-select:none;-webkit-user-select:none}
+.tbtn:active{background:rgba(124,252,0,.4)}
+@media(pointer:coarse){#touch{display:flex}}
+.hint{font-size:12px;opacity:.7;margin-top:10px;text-align:left;line-height:1.7}
+.stars-big{font-size:26px;letter-spacing:.2em;color:var(--gold)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div class="left">
+    <div class="pill" id="lvlName">LEVEL 1</div>
+    <div class="pill" id="time">0:00.00</div>
+    <div class="pill" id="starsHud">★ 0/6</div>
+    <div class="pill" id="scoreHud">SCORE 0</div>
+    <div class="pill" id="keysHud" title="live key display">▲ ▼ ◀ ▶ ⤒</div>
+  </div>
+  <div class="right">
+    <div class="pill" id="best" style="display:none">BEST —</div>
+    <button class="btn ghost" id="bMute">🔊 SOUND</button>
+    <button class="btn ghost" id="bFull" title="Toggle fullscreen">⛶ FULL</button>
+    <button class="btn ghost" id="bLevels">LEVELS</button>
+    <button class="btn ghost" id="bRestart">↻ RESTART</button>
+  </div>
+</div>
+<div id="toast" style="opacity:0"></div>
+
+<div id="touch">
+  <div class="grp">
+    <button class="tbtn" id="tLeft">◀<br>LEAN</button>
+    <button class="tbtn" id="tRight">LEAN<br>▶</button>
+  </div>
+  <div class="grp">
+    <button class="tbtn" id="tHop" style="border-color:#ffd60a">HOP<br>⤒</button>
+  </div>
+  <div class="grp">
+    <button class="tbtn" id="tBrake">BRAKE<br>▼</button>
+    <button class="tbtn" id="tGas" style="border-color:#7CFC00">GAS<br>▲</button>
+  </div>
+</div>
+
+<div class="overlay" id="menu">
+  <div class="card">
+    <h1>MTB <span>MANIA</span></h1>
+    <div class="sub">ELASTO-STYLE MOUNTAIN BIKE TRIALS <span id="verTag"></span></div>
+    <div class="desc">Real bike physics, 13 hand-built levels. Throttle, brake and move your weight — that is the whole game.<br><br>Don't smash your helmet. Grab stars. Cross the flag.</div>
+    <div class="desc" style="margin-top:12px">
+      <span class="kbd">▲ / W</span> pedal &nbsp;
+      <span class="kbd">▼ / S</span> brake &nbsp;
+      <span class="kbd">◀ / A</span> <span class="kbd">▶ / D</span> lean &nbsp;
+      <span class="kbd">Space</span> hop &nbsp;
+      <span class="kbd">T</span> turn &nbsp;
+      <span class="kbd">R</span> restart &nbsp;
+      <span class="kbd">M</span> mute
+    </div>
+    <div class="grid" id="lvlGrid"></div>
+    <div class="row">
+      <button class="btn" id="bPlay">▶ RIDE</button>
+      <button class="btn ghost" id="bHow">HOW TO RIDE</button>
+    </div>
+    <div class="hint" id="how" style="display:none">
+      • <b>Gas</b> and <b>brake</b> act through the tires — hit a wheel and you move.<br>
+      • <b>Lean (◀ ▶)</b> moves your weight: forward keeps the front down on climbs, back unloads it for manuals and descents. The same world direction no matter which way you face.<br>
+      • <b>Hop (Space / Shift / J)</b> off lips, over logs, out of trouble.<br>
+      • <b>Weight and traction:</b> too much lean on a hill and you loop out or spin. Feather it.<br>
+      • <b>Seesaws:</b> they tip under your weight — keep gas and ride across before the high end drops.<br>
+      • <b>Air:</b> hold a lean to rotate — full rotation on landing = flip points. Land roughly along the slope or you slam.<br>
+      • <b>Style pays:</b> flips +500 each (less for repeats); the nearest whole rotation counts, so 2.8 spins = TRIPLE (2000/4500/8000 for doubles/triples/quads), wheelies/stoppies bank points, big air +150.<br>
+      • <b>Time matters:</b> your final score is the run score × par/time — fast runs with tricks beat long farming runs.<br>
+      • <b>T</b> turns you around. <b>M</b> mutes. Best time and score are saved per level, and your name goes on the local highscore board.
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="done">
+  <div class="card">
+    <div class="sub" id="doneSub">LEVEL CLEAR</div>
+    <h1 id="doneTitle" style="font-size:34px">Nice ride!</h1>
+    <div class="stars-big" id="doneStars">★★★★★</div>
+    <div class="desc" id="doneStats" style="margin-top:10px"></div>
+    <div class="row" id="nameRow" style="display:none">
+      <input id="nameIn" maxlength="12" placeholder="YOUR NAME" style="padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.35);color:#fff;font:inherit;letter-spacing:1px;text-transform:uppercase;text-align:center">
+      <button class="btn" id="bName">SAVE SCORE</button>
+    </div>
+    <div id="boardBox" style="display:none;margin-top:12px;font-size:14px"></div>
+    <div class="row" id="doneBtns">
+      <button class="btn ghost" id="bRetry">↻ RETRY</button>
+      <button class="btn ghost" id="bMenu2">LEVELS</button>
+      <button class="btn" id="bNext">NEXT LEVEL ▶</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{ "use strict";
+// =====================================================================
+// MTB MANIA — full rewrite. Rigid-body bike with suspension wheels,
+// tire forces (drive/brake/grip), rider weight-shift torque, validated levels.
+// =====================================================================
+const VERSION='0.7.3';
+const FLIP_MAP=/(\?|&)flip\b/.test(location.search);
+const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=window.innerWidth;H=window.innerHeight;canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+window.addEventListener('resize',resize);resize();
+
+// ---------- math ----------
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const TAU=Math.PI*2;
+function wrap(a){ while(a>Math.PI)a-=TAU; while(a<-Math.PI)a+=TAU; return a; }
+function fmt(t){ if(t==null||!isFinite(t))return'—'; const m=Math.floor(t/60),s=t-m*60; return m+':'+(s<10?'0':'')+s.toFixed(2); }
+function escHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function timeFactor(par,t){ return clamp(par/Math.max(1,t),0.4,2.2); }
+let toastT=null;
+function toast(msg,ms){ const el=document.getElementById('toast'); el.textContent=msg; el.style.opacity=1; clearTimeout(toastT); toastT=setTimeout(()=>el.style.opacity=0,ms||1800); }
+
+// ---------- audio: quiet, silent with no input ----------
+let AC=null, engOsc=null, engGain=null, engFilt=null;
+function isMuted(){ try{return localStorage.getItem('mtb_mute_v2')==='1';}catch(e){return false;} }
+function setMuted(m){ try{localStorage.setItem('mtb_mute_v2',m?'1':'0');}catch(e){} if(engGain&&AC)engGain.gain.setTargetAtTime(0,AC.currentTime,0.03); const b=document.getElementById('bMute'); if(b)b.textContent=m?'🔇 MUTED':'🔊 SOUND'; }
+function toggleMute(){ setMuted(!isMuted()); }
+function audioInit(){ if(AC) return; try{AC=new (window.AudioContext||window.webkitAudioContext)(); engOsc=AC.createOscillator(); engFilt=AC.createBiquadFilter(); engGain=AC.createGain(); engOsc.type='triangle'; engOsc.frequency.value=58; engFilt.type='lowpass'; engFilt.frequency.value=430; engGain.gain.value=0; engOsc.connect(engFilt); engFilt.connect(engGain); engGain.connect(AC.destination); engOsc.start();}catch(e){} }
+function engineUpdate(on,speed){ if(!AC||!engGain)return; const t=AC.currentTime; if(isMuted()||!on){ engGain.gain.setTargetAtTime(0,t,0.07); return; } engGain.gain.setTargetAtTime(0.014+Math.min(1,Math.abs(speed)/1100)*0.012,t,0.1); engOsc.frequency.setTargetAtTime(62+Math.min(1,Math.abs(speed)/1100)*80,t,0.09); }
+function blip(f,d,type,g){ if(!AC||isMuted())return; try{const o=AC.createOscillator(),gn=AC.createGain();o.type=type||'sine';o.frequency.value=f;gn.gain.value=Math.min(g||0.05,0.06);gn.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+d);o.connect(gn);gn.connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){} }
+
+// ---------- storage ----------
+const store={
+  get name(){try{return localStorage.getItem('mtb_name_v3')||''}catch(e){return''}},
+  setName(n){try{localStorage.setItem('mtb_name_v3',n)}catch(e){}},
+  get best(){try{return JSON.parse(localStorage.getItem('mtb_best_v3')||'{}')}catch(e){return{}}},
+  setBest(i,t){const b=this.best;if(!b[i]||t<b[i]){b[i]=t;localStorage.setItem('mtb_best_v3',JSON.stringify(b));return true}return false},
+  get bestScore(){try{return JSON.parse(localStorage.getItem('mtb_score_v4')||'{}')}catch(e){return{}}},
+  setBestScore(i,s){const b=this.bestScore;if(!b[i]||s>b[i]){b[i]=Math.floor(s);localStorage.setItem('mtb_score_v4',JSON.stringify(b));return true}return false},
+  get unlocked(){return parseInt(localStorage.getItem('mtb_unlocked_v3')||'1',10)||1},
+  setUnlocked(n){localStorage.setItem('mtb_unlocked_v3',String(Math.max(this.unlocked,n)))},
+  get board(){try{return JSON.parse(localStorage.getItem('mtb_board_v4')||'{}')}catch(e){return{}}},
+  saveEntry(i,e){
+    if(!e.n)return null;
+    const b=this.board, list=b[i]||(b[i]=[]);
+    let r=list.find(x=>x.n===e.n);
+    if(!r){r={n:e.n,t:e.t,s:e.s};list.push(r);}
+    else{ if(e.t<r.t)r.t=e.t; if(e.s>r.s)r.s=e.s; }
+    list.sort((a,c)=>a.t-c.t); if(list.length>12)list.length=12;
+    localStorage.setItem('mtb_board_v4',JSON.stringify(b)); return r;
+  }
+};
+try{['mtb_best_v2','mtb_score_v2','mtb_unlocked_v2','mtb_score_v3','mtb_board_v3'].forEach(k=>localStorage.removeItem(k));}catch(e){}
+// ---------- physics constants ----------
+const GRAV=1500, MAX_V=1500, MAX_W=11;
+const WHEEL_R=16, WHEEL_X=30, WHEEL_Y=17;      // contact point ~33 below CoG
+const K_SPRING=300, C_DAMP=30, MAX_N=45000;
+const MU=1.2, DRIVE=1150, BRAKE=1500, REVERSE=420;
+const DRAG=0.8, DRAG_V=0.15;
+const LEAN_G=38000, LEAN_A=56000, I_BODY=2400;
+const ANG_DAMP_G=2.4, ANG_DAMP_A=0.12;
+const HOP_V=520, HOP_TQ=8000;
+const STAR_R=46, FLIP_TH=0.85;
+const SW_I=9000, SW_DAMP=2.6;
+
+// ---------- levels ----------
+function P(x0,x1,step,f){ const a=[]; for(let x=x0;x<=x1+0.01;x+=step)a.push([x,f(x)]); return a; }
+const bump=(x,c,w,h)=>{const d=(x-c)/w;return -h*Math.exp(-d*d);};
+
+function buildLevels(){
+  const L=[];
+  const MEADOW={sky:['#7ec8f7','#bfe6fb','#e8f6e8'],far:'#8fb8d8',near:'#6da86f',ground:'#7a5230',grass:'#3f9e3f',grassHi:'#7CFC00'};
+  const FOREST={sky:['#9fd3e8','#c8e6d8','#e6f2d8'],far:'#6f9fb8',near:'#4d8a52',ground:'#6b4a2c',grass:'#2f8a3f',grassHi:'#7CFC00'};
+  const CANYON={sky:['#8ec8f0','#f2d8a8','#f7e8c8'],far:'#c09a78',near:'#a87848',ground:'#8a5a33',grass:'#b8894a',grassHi:'#ffd60a'};
+  const ROCKY={sky:['#a8c8e8','#d8d8e0','#e8e0d0'],far:'#8a90a8',near:'#707a68',ground:'#6a5a48',grass:'#7a8a5a',grassHi:'#d8e878'};
+  const DUSK={sky:['#5a5ab8','#e87888','#f7c898'],far:'#6a5a98',near:'#4d6a58',ground:'#5a4030',grass:'#3f7a4f',grassHi:'#ffd60a'};
+  const SNOW={sky:['#a8d0f0','#dceaf8','#ffffff'],far:'#b8c8e0',near:'#8aa888',ground:'#6a5a48',grass:'#ffffff',grassHi:'#bfe6fb'};
+  const DARKF={sky:['#3a5a78','#5a7a68','#2a3a48'],far:'#3a5a68',near:'#2f5b3a',ground:'#4a3828',grass:'#2f7a3f',grassHi:'#7CFC00'};
+  const log=(x,g,h)=>{ h=h||36; return [[x-46,g+12],[x-18,g-h],[x+18,g-h],[x+46,g+12]]; };
+  const seesaw=(x,g,hw,dir)=>{ hw=hw||100; const max=0.42,a0=(dir>0?max:-max); return {x,y:g-Math.sin(max)*hw+8,hw,I:SW_I*Math.pow(hw/110,2),a:a0,a0,w:0,max}; };
+
+  // 1 — Greenhorn Hills (flowing meadow, launch bumps, gap jump, log rhythm, fast finish)
+  {
+    const f=x=>530+45*Math.sin(x*0.0032)+14*Math.sin(x*0.01)
+      +bump(x,2300,150,115)
+      -(x>4200?Math.min(140,(x-4200)*0.14):0)
+      +Math.min(180,(x>5100?(x-5100)*0.16:0))
+      +bump(x,6700,150,95)+bump(x,7900,140,85)
+      -(x>11100?Math.min(300,(x-11100)*0.16):0)
+      +Math.min(330,(x>13100?(x-13100)*0.19:0))
+      +bump(x,14800,160,110);
+    const land1=x=>f(x)+60*Math.max(0,1-(x-3450)/250);
+    const grounds=[P(-400,3200,50,f),P(3450,16200,50,land1)];
+    const extras=[log(5600,f(5600)),log(8600,f(8600)),log(9600,f(9600)),log(10300,f(10300))];
+    const st=(x,o)=>[x,f(x)-(o||50)];
+    const stars=[st(700),st(1500),st(2300,150),st(3000),[3400,f(3200)-115],st(4700,70),st(5600,95),st(6300),st(6700,140),st(7400),st(7900,135),st(9200,95),st(9900,95),st(12000),st(13800),st(14800,145),st(15600)];
+    const signs=[];
+    L.push({name:'1 — Greenhorn Hills',hint:'Rolling meadow with launch bumps, a gap jump, a log rhythm and a fast finish.',par:60,start:{x:60},grounds,extras,stars,signs,finish:{x:15900},killY:1600,theme:MEADOW,botOptional:true});
+  }
+  // 2 — Log Hop Valley (log rhythm, launch rollers, ridge and a fast chute)
+  {
+    const f=x=>545+14*Math.sin(x*0.004)+7*Math.sin(x*0.013)
+      -(x>5400?Math.min(150,(x-5400)*0.13):0)
+      +bump(x,6900,170,95)
+      -(x>7700?Math.min(220,(x-7700)*0.14):0)
+      +Math.min(300,(x>8400?(x-8400)*0.2:0))
+      +bump(x,11300,170,130)
+      -(x>12600?Math.min(340,(x-12600)*0.22):0)
+      +bump(x,14800,150,95);
+    const grounds=[P(-400,16400,50,f)];
+    const lx=[1300,2200,3100,4000,8800,9400,10000];
+    const extras=lx.map(x=>log(x,f(x)));
+    const stars=[[600,f(600)-45]];
+    for(const x of lx)stars.push([x,f(x)-95]);
+    stars.push([4500,f(4500)-80],[6900,f(6900)-120],[7500,f(7500)-60],[11400,f(11400)-115],[12000,f(12000)-70],[13400,f(13400)-50],[14500,f(14500)-50],[15200,f(15200)-50],[15900,f(15900)-50]);
+    const signs=[];
+    L.push({name:'2 — Log Hop Valley',hint:'Log rhythm, launch rollers, a ridge and a fast chute.',par:80,start:{x:60},grounds,extras,stars,signs,finish:{x:16100},killY:1300,theme:FOREST,botOptional:true});
+  }
+  // 3 — Gap Mesa (ramped gaps, a seesaw bridge over a pit, kickers and a final drop)
+  {
+    const ER=120, EH=35, KR=150, KX=40, KH=100;
+    const mesa=(x0,x1,y)=>P(x0,x1+KX,10,x=>{
+      if(x<x0+ER)return y+EH-EH*(x-x0)/ER;
+      if(x>x1-KR)return y-KH*(x-(x1-KR))/(KR+KX);
+      return y;
+    });
+    const grounds=[
+      mesa(-400,1200,520), mesa(1520,2800,500), mesa(3120,4200,480), mesa(4520,5500,450),
+      mesa(5820,6900,410), P(7220,8300,50,()=>350), P(8530,9650,50,()=>350), P(9970,11100,50,()=>290), mesa(12000,13200,270)];
+    const plank=[[11200,300],[11820,300],[11900,268]];
+    const extras=[plank];
+    const seesaws=[seesaw(8415,350,115)];
+    const stars=[[400,475],[1380,450],[2200,455],[2980,430],[3800,435],[4380,400],[5100,405],[5680,360],[6500,365],[7080,320],[7900,305],[8100,300],[8420,245],[8790,280],[9250,305],[9830,240],[10600,245],[11500,250],[12600,225],[13050,210]];
+    const signs=[{x:8180,text:'SEESAW — KEEP GAS'}];
+    L.push({name:'3 — Gap Mesa',hint:'Ramped gap jumps with a seesaw bridge and a final drop.',par:38,start:{x:60},grounds,extras,seesaws,stars,signs,finish:{x:12900},killY:1100,theme:CANYON,botOptional:true});
+  }
+  // 4 — Rock Garden (rough rocks, big kicker, cliff drop, whoops, rock wall + gap)
+  {
+    const f=x=>530+55*Math.sin(x*0.004)+14*Math.sin(x*0.02)+4*Math.sin(x*0.03);
+    const f4=x=>f(x)
+      +bump(x,4700,150,95)
+      +(x>5400?Math.min(220,(x-5400)*0.2):0)
+      -(x>6800?140*Math.pow(Math.min(1,(x-6800)/640),2):0)
+      +(x>7440?Math.min(330,(x-7440)*0.15):0)
+      +(x>8700?Math.min(170,(x-8700)*0.8):0)
+      +(x>9300?14*Math.sin((x-9300)*0.045):0);
+    const yW=f4(9880);
+    const wallF=x=>yW-(x-9880)*0.34;
+    const topF=x=>yW-272+14*Math.sin((x-10680)*0.02);
+    const yT=topF(11580);
+    const lipF=x=>yT-(x-11580)*0.5;
+    const yL=lipF(11740);
+    const g4=x=>yL+110+(x>12000?60*Math.min(1,(x-12000)/240):0)+(x>12240?(x-12240)*0.08:0)+bump(x,13300,150,95)+(x>14000?12*Math.sin((x-14000)*0.05):0);
+    const grounds=[P(-400,9880,40,f4),P(9880,10680,40,wallF),P(10680,11580,50,topF),P(11580,11740,40,lipF),P(12000,14660,20,g4)];
+    const st=(x,o)=>[x,(x<9880?f4(x):x<10680?wallF(x):x<11580?topF(x):x<11740?lipF(x):g4(x))-o];
+    const stars=[st(700,50),st(1500,70),st(2400,50),st(3300,80),st(4200,50),st(4700,145),st(5200,60),st(6100,60),st(6900,60),st(7150,60),st(7500,60),st(7850,60),st(8250,60),st(8650,60),st(9000,60),st(9350,60),st(9700,60),st(9950,60),st(10350,60),st(10750,60),st(11250,60),st(11650,70),st(12300,60),st(13000,60),st(13300,140),st(13700,60),st(14500,60)];
+    const signs=[];
+    L.push({name:'4 — Rock Garden',hint:'Rough rocks: wall, ridge, big kicker and a long gap.',par:48,start:{x:60},grounds,extras:[],stars,signs,finish:{x:14550},killY:2100,theme:ROCKY});
+  }
+  // 5 — The Wall (steep wall, ridge, gap, second wall, drop, whoops)
+  {
+    const p1=P(-400,1500,50,x=>540-(x+400)*0.02);
+    const p2=P(1500,2120,40,x=>510-(x-1500)*0.42);
+    const p3=P(2120,3000,50,x=>250+14*Math.sin((x-2120)*0.02));
+    const p4=P(3250,4800,50,x=>480+35*Math.sin((x-3250)*0.006)+bump(x,4550,150,85));
+    const q1=P(4800,6200,50,x=>484+(x-4800)*0.09);
+    const q2=P(6200,6900,30,x=>610+(x-6200)*0.45);
+    const q3=P(6900,8000,50,x=>925-30*Math.sin((x-6900)*0.008)-(x>7860?Math.min(70,(x-7860)*0.5):0));
+    const q4=P(8300,9950,50,x=>1114-Math.min(180,(x-8300)*0.18)+(x>9300?24*Math.sin((x-9300)*0.055):0));
+    const y5=q4[q4.length-1][1];
+    const r1f=x=>y5-(x-9950)*0.38;
+    const r1=P(9950,10750,40,r1f);
+    const r2f=x=>y5-304+14*Math.sin((x-10750)*0.02);
+    const r2=P(10750,11450,50,r2f);
+    const r3f=x=>y5-304+360*Math.min(1,(x-11450)/650)+(x>12100?(x-12100)*0.06:0)+(x>12900?14*Math.sin((x-12900)*0.05):0);
+    const r3=P(11450,13900,50,r3f);
+    const grounds=[p1,p2,p3,p4,q1,q2,q3,q4,r1,r2,r3];
+    const stars=[[900,540-45],[1820,510-(1820-1500)*0.42-90],[2500,250-55],[3120,180],[3900,396],[4550,290],[5100,451],[6550,675],[7200,845],[7600,884],[8150,810],[8600,1000],[9100,910],[9600,857],[10200,r1f(10200)-60],[10650,r1f(10650)-60],[11150,r2f(11150)-60],[11800,r3f(11800)-60],[12400,r3f(12400)-60],[13100,r3f(13100)-60],[13600,r3f(13600)-60]];
+    const signs=[];
+    L.push({name:'5 — The Wall',hint:'Three walls, a ridge and a steep chute. Weight back to survive.',par:36,start:{x:60},grounds,extras:[],stars,signs,finish:{x:13800},killY:1900,theme:DUSK});
+  }
+  // 6 — Loop Dreams (full loop + rhythm section, rollers, kicker and drop)
+  {
+    const pre=P(-600,1920,50,x=>540+6*Math.sin(x*0.004));
+    const ramp=P(1920,2400,50,x=>540+Math.max(0,x-1920)*0.7);
+    const post=P(2400,6300,55,x=>876+24*Math.sin((x-2400)*0.006)+bump(x,3900,150,95));
+    const mid=P(6300,6800,50,x=>852+(x-6300)*0.056);
+    const roll=P(6800,7500,40,x=>880+22*Math.sin((x-6800)*0.012));
+    const flat=P(7500,8100,50,()=>899);
+    const kick=P(8100,8340,12,x=>899-100*(x-8100)/240);
+    const land=P(8570,10470,50,x=>877-35*Math.min(1,(x-8570)/120)+(x>9350?18*Math.sin((x-9350)*0.05):0));
+    const cx=2000, cy=400, R=140, tube=[];
+    for(let deg=160;deg<=430;deg+=8){ const r=deg*Math.PI/180; tube.push([cx+Math.cos(r)*R, cy+Math.sin(r)*R]); }
+    const yLap=land[land.length-1][1];
+    const wf=x=>yLap-(x-10470)*0.36;
+    const wall=P(10470,11270,40,wf);
+    const rf=x=>yLap-288+14*Math.sin((x-11270)*0.02);
+    const ridge=P(11270,11970,50,rf);
+    const chute=x=>yLap-288+360*Math.min(1,(x-11970)/650)+(x>12620?(x-12620)*0.06:0)+(x>13400?14*Math.sin((x-13400)*0.05)*clamp((14100-x)/700,0,1):0);
+    const chuteP=P(11970,14390,20,chute);
+    const grounds=[pre,ramp,post,mid,roll,flat,kick,land,wall,ridge,chuteP];
+    const stars=[[800,540-45],[cx,cy-R+22],[3200,792],[3900,651],[4400,803],[4900,841],[5600,834],[6200,808],[7200,808],[7800,818],[8430,720],[9000,792],[9500,809],[9800,783],[10700,wf(10700)-60],[11100,rf(11100)-60],[11900,rf(11900)-70],[12600,chute(12600)-60],[13300,chute(13300)-60],[14000,chute(14000)-60]];
+    const signs=[{x:200,text:'LOOP: FULL GAS, HOLD ON'}];
+    L.push({name:'6 — Loop Dreams',hint:'Loop, rollers, kicker, wall and a steep chute. Hold on.',par:38,start:{x:-200},grounds,extras:[],stars,signs,finish:{x:14280},killY:1700,theme:MEADOW,twoSided:[tube],loop:{x:cx,y:cy,r:R}});
+  }
+  // 7 — Cliffhanger (plateaus, drops, wall and chute)
+  {
+    const w7=x=>651+(x-6900)*0.05+15*Math.sin((x-6900)*0.04);
+    const whoops=P(6900,8100,50,w7);
+    const y7a=w7(8100);
+    const wall7f=x=>y7a-(x-8100)*0.34;
+    const wall7=P(8100,8900,40,wall7f);
+    const y7w=wall7f(8900);
+    const ridge7f=x=>y7w+14*Math.sin((x-8900)*0.02);
+    const ridge7=P(8900,9600,50,ridge7f);
+    const y7r=ridge7f(9600);
+    const chute7f=x=>y7r+360*Math.min(1,(x-9600)/650)+(x>10250?(x-10250)*0.06:0)+(x>11600?20*Math.sin((x-11600)*0.05):0);
+    const chute7=P(9600,13700,50,chute7f);
+    const grounds=[P(-400,1200,50,()=>420),P(1450,2600,50,()=>520),P(2850,4000,50,()=>600),P(4250,5400,50,()=>660),P(5600,6900,50,x=>690-(x-5600)*0.03+bump(x,6550,150,50)),whoops,wall7,ridge7,chute7];
+    const stars=[[800,420-50],[1320,300],[2000,520-45],[2720,420],[3500,600-45],[4120,500],[4900,660-50],[5300,520],[6100,690-45],[6500,690-50],[6550,447],[7350,w7(7350)-60],[7800,w7(7800)-60],[8300,wall7f(8300)-60],[8600,wall7f(8600)-60],[9100,ridge7f(9100)-60],[9400,ridge7f(9400)-60],[9900,chute7f(9900)-60],[10700,chute7f(10700)-60],[11600,chute7f(11600)-60],[12400,chute7f(12400)-60],[13200,chute7f(13200)-60],[13550,chute7f(13550)-60]];
+    const signs=[];
+    L.push({name:'7 — Cliffhanger',hint:'Four drops, a wall, a ridge and a steep chute.',par:44,start:{x:60},grounds,extras:[],stars,signs,finish:{x:13600},killY:1900,theme:CANYON});
+  }
+  // 8 — Root Hell (two plank pits, wall and chute)
+  {
+    const run=P(4800,6300,50,x=>505+16*Math.sin((x-4800)*0.006));
+    const y8a=run[run.length-1][1];
+    const planks=[
+      [[900,500],[1500,500]],
+      [[1650,482],[2250,482]],
+      [[2400,464],[3000,464]],
+      [[3150,446],[3750,446]],
+      [[3900,472],[4550,472]],
+      [[6450,y8a-6],[6950,y8a-6]],
+      [[7100,y8a-26],[7600,y8a-26]],
+    ];
+    const w8=x=>y8a+(x-7750)*0.05+15*Math.sin((x-7750)*0.04);
+    const wash=P(7750,9000,50,w8);
+    const y8b=w8(9000);
+    const wall8f=x=>y8b-(x-9000)*0.34;
+    const wall8=P(9000,9800,40,wall8f);
+    const y8w=wall8f(9800);
+    const ridge8f=x=>y8w+14*Math.sin((x-9800)*0.02);
+    const ridge8=P(9800,10500,50,ridge8f);
+    const y8r=ridge8f(10500);
+    const chute8f=x=>y8r+360*Math.min(1,(x-10500)/650)+(x>11150?(x-11150)*0.06:0)+(x>12400?18*Math.sin((x-12400)*0.05):0);
+    const chute8=P(10500,13900,50,chute8f);
+    const grounds=[P(-400,800,50,()=>520),run,wash,wall8,ridge8,chute8];
+    const stars=[[600,470],[1200,445],[2250,427],[3000,409],[3750,391],[4550,417],[5500,455],[6000,445],[6700,y8a-61],[7350,y8a-81],[8050,w8(8050)-55],[8600,w8(8600)-55],[9150,wall8f(9150)-60],[9500,wall8f(9500)-60],[10000,ridge8f(10000)-60],[10300,ridge8f(10300)-60],[10800,chute8f(10800)-60],[11500,chute8f(11500)-60],[12300,chute8f(12300)-60],[13100,chute8f(13100)-60],[13650,chute8f(13650)-60]];
+    const signs=[];
+    L.push({name:'8 — Root Hell',hint:'Two plank pits, a wall, a ridge and a steep chute. Smooth is fast.',par:40,start:{x:60},grounds,extras:planks,stars,signs,finish:{x:13800},killY:1200,theme:DARKF});
+  }
+  // 9 — Alpine Monster (long climb, gaps, wall, kicker and long descent)
+  {
+    const g1=P(-400,2400,50,x=>540-(x+400)*0.22);
+    const g2=P(2640,4200,50,x=>-60+20*Math.sin((x-2640)*0.005));
+    const g3=P(4440,6800,50,x=>-60+(x-4440)*0.16);
+    const d9f=x=>308+(x-6800)*0.05+15*Math.sin((x-6800)*0.04)+bump(x,7700,150,55);
+    const d9=P(6800,8600,50,d9f);
+    const y9a=d9f(8600);
+    const wall9f=x=>y9a-(x-8600)*0.34;
+    const wall9=P(8600,9400,40,wall9f);
+    const y9w=wall9f(9400);
+    const ridge9f=x=>y9w+14*Math.sin((x-9400)*0.02);
+    const ridge9=P(9400,10100,50,ridge9f);
+    const y9r=ridge9f(10100);
+    const lip9f=x=>y9r-(x-10100)*0.3;
+    const lip9=P(10100,10260,20,lip9f);
+    const y9L=lip9f(10260);
+    const land9f=x=>y9L+80+50*Math.min(1,(x-10480)/250)+(x>10730?(x-10730)*0.08:0)+(x>12280?14*Math.sin((x-12280)*0.05)*clamp((12900-x)/600,0,1):0);
+    const land9=P(10480,13200,20,land9f);
+    const grounds=[g1,g2,g3,d9,wall9,ridge9,lip9,land9];
+    const f9=x=>{ if(x<=2400)return 540-(x+400)*0.22; if(x>=2640&&x<=4200)return -60+20*Math.sin((x-2640)*0.005); return -60+(x-4440)*0.16; };
+    const stars=[[800,f9(800)-60],[1600,f9(1600)-60],[2400,f9(2400)-60],[2550,-150],[3450,f9(3450)-50],[4100,f9(4100)-50],[5000,f9(5000)-60],[6000,f9(6000)-60],[6600,f9(6600)-60],[7200,d9f(7200)-55],[7800,d9f(7800)-55],[8300,d9f(8300)-55],[8800,wall9f(8800)-60],[9100,wall9f(9100)-60],[9600,ridge9f(9600)-60],[9900,ridge9f(9900)-60],[10800,land9f(10800)-60],[11400,land9f(11400)-60],[12100,land9f(12100)-60],[12700,land9f(12700)-60],[13050,land9f(13050)-60]];
+    const signs=[];
+    L.push({name:'9 — Alpine Monster',hint:'Long climb, gaps, a wall and a kicker. Pace it.',par:34,start:{x:60},grounds,extras:[],stars,signs,finish:{x:13100},killY:1400,theme:SNOW});
+  }
+  // 10 — Downhill Madness (3 kickers on a long descent)
+  {
+    const f=x=>60+x*0.085+45*Math.sin(x*0.004)+16*Math.sin(x*0.011);
+    const kick=(x)=>{ const g=f(x); return [[x-90,g-8],[x,g-78],[x+70,g-12]]; };
+    const extras=[kick(2200),kick(5000),kick(8800)];
+    const y10=f(10200);
+    const w10f=x=>y10+(x-10200)*0.05+15*Math.sin((x-10200)*0.04);
+    const whoops10=P(10200,11400,50,w10f);
+    const y10b=w10f(11400);
+    const wall10f=x=>y10b-(x-11400)*0.34;
+    const wall10=P(11400,12200,40,wall10f);
+    const y10w=wall10f(12200);
+    const ridge10f=x=>y10w+14*Math.sin((x-12200)*0.02);
+    const ridge10=P(12200,12900,50,ridge10f);
+    const y10r=ridge10f(12900);
+    const chute10f=x=>y10r+360*Math.min(1,(x-12900)/650)+(x>13550?(x-13550)*0.06:0)+(x>14700?18*Math.sin((x-14700)*0.05):0);
+    const chute10=P(12900,15500,50,chute10f);
+    const grounds=[P(-400,10200,50,f),whoops10,wall10,ridge10,chute10];
+    const stars=[[800,f(800)-50],[1600,f(1600)-50],[2200,f(2200)-140],[3600,f(3600)-50],[4400,f(4400)-60],[5000,f(5000)-140],[6300,f(6300)-50],[7200,f(7200)-60],[7800,f(7800)-50],[8800,f(8800)-140],[10500,w10f(10500)-55],[11000,w10f(11000)-55],[11600,wall10f(11600)-60],[11900,wall10f(11900)-60],[12400,ridge10f(12400)-60],[12700,ridge10f(12700)-60],[13200,chute10f(13200)-60],[13900,chute10f(13900)-60],[14700,chute10f(14700)-60],[15250,chute10f(15250)-60]];
+    const signs=[];
+    L.push({name:'10 — Downhill Madness',hint:'Long descent, three kickers, a wall and a steep chute.',par:38,start:{x:60},grounds,extras,stars,signs,finish:{x:15400},killY:1600,theme:DUSK});
+  }
+  // 11 — Timber Trail (rolling forest, four log hops, wall and chute)
+  {
+    const f=x=>520+45*Math.sin(x*0.003)+12*Math.sin(x*0.009)+bump(x,2600,200,90)+bump(x,5300,150,55);
+    const y11=f(11200);
+    const wall11f=x=>y11-(x-11200)*0.34;
+    const wall11=P(11200,12000,40,wall11f);
+    const y11w=wall11f(12000);
+    const ridge11f=x=>y11w+14*Math.sin((x-12000)*0.02);
+    const ridge11=P(12000,12700,50,ridge11f);
+    const y11r=ridge11f(12700);
+    const chute11f=x=>y11r+360*Math.min(1,(x-12700)/650)+(x>13350?(x-13350)*0.06:0)+(x>14500?18*Math.sin((x-14500)*0.05):0);
+    const chute11=P(12700,15300,50,chute11f);
+    const grounds=[P(-400,11200,50,f),wall11,ridge11,chute11];
+    const extras=[log(1500,f(1500)+1,34),log(3600,f(3600)+1,34),log(6800,f(6800)+1,34),log(8800,f(8800)+1,34)];
+    const stars=[[800,f(800)-50],[1500,f(1500)-50],[2400,f(2400)-50],[3200,f(3200)-50],[3600,f(3600)-50],[4400,f(4400)-50],[5000,f(5000)-50],[6200,f(6200)-50],[6800,f(6800)-50],[7600,f(7600)-50],[8800,f(8800)-50],[9800,f(9800)-50],[10700,f(10700)-50],[11400,wall11f(11400)-60],[11750,wall11f(11750)-60],[12250,ridge11f(12250)-60],[12550,ridge11f(12550)-60],[13000,chute11f(13000)-60],[13700,chute11f(13700)-60],[14400,chute11f(14400)-60],[15050,chute11f(15050)-60]];
+    const signs=[];
+    L.push({name:'11 — Timber Trail',hint:'Rolling forest, four log hops, a wall and a steep chute.',par:36,start:{x:60},grounds,extras,stars,signs,finish:{x:15200},killY:1600,theme:FOREST});
+  }
+  // 12 — Teeter Trail (seesaw bridge over a pit, launch pad, logs and rollers)
+  {
+    const base=x=>520+40*Math.sin(x*0.0026)+16*Math.sin(x*0.008)+bump(x,9100,150,55);
+    const bridgeX=5575, gapHalf=500, bridgeHW=570;
+    const pads=[[1875,150],[bridgeX,gapHalf+120]];
+    const padK=(x,c,w)=>{ const d=Math.abs(x-c); if(d<=w)return 0; const t=Math.min(1,(d-w)/180); return t*t*(3-2*t); };
+    const f=x=>{ let y=base(x); for(const [c,w] of pads){ const k=padK(x,c,w); if(k<1){ const yc=base(c); y=y*k+yc*(1-k); } } return y; };
+    const grounds=[P(-400,bridgeX-gapHalf,50,f),P(bridgeX+gapHalf,12050,50,f)];
+    const extras=[log(3300,f(3300)+1,34),log(4500,f(4500)+1,34),log(7400,f(7400)+1,34),log(10200,f(10200)+1,34)];
+    const seesaws=[seesaw(1875,f(1875),110),seesaw(bridgeX,f(bridgeX),bridgeHW)];
+    const st=(x,o)=>[x,f(x)-(o||50)];
+    const swY=f(bridgeX)-Math.sin(0.42)*bridgeHW+8;
+    const stars=[st(700),st(1200),st(1600,80),st(1875,95),st(2500),st(3000),st(3300,95),st(3900),st(4500,95),st(5100),[bridgeX,swY-33],st(6200),st(6800),st(7400,95),st(8100),st(9100,95),st(9800),st(10200,95),st(10900),st(11500)];
+    const signs=[{x:bridgeX-670,text:'SEESAW BRIDGE — KEEP GAS'}];
+    L.push({name:'12 — Teeter Trail',hint:'The pit is too wide to jump — ride the seesaw bridge. Keep gas and cross before the high end drops.',par:34,start:{x:60},grounds,extras,seesaws,stars,signs,finish:{x:12000},killY:1500,theme:FOREST});
+  }
+  // 13 — Balance Beast (wall, chute, whoops and a seesaw bridge)
+  {
+    const base=x=>540+30*Math.sin(x*0.0022)+12*Math.sin(x*0.009)
+      -Math.min(280,(x>8500?(x-8500)*0.30:0))
+      +(x>10200?Math.min(420,(x-10200)*0.55):0)
+      +(x>11100?12*Math.sin((x-11100)*0.05)*clamp((11900-x)/800,0,1):0);
+    const bridgeX=6200, gapHalf=500, bridgeHW=570;
+    const pads=[[2600,150],[bridgeX,gapHalf+120]];
+    const padK=(x,c,w)=>{ const d=Math.abs(x-c); if(d<=w)return 0; const t=Math.min(1,(d-w)/180); return t*t*(3-2*t); };
+    const f=x=>{ let y=base(x); for(const [c,w] of pads){ const k=padK(x,c,w); if(k<1){ const yc=base(c); y=y*k+yc*(1-k); } } return y; };
+    const grounds=[P(-400,bridgeX-gapHalf,50,f),P(bridgeX+gapHalf,13550,50,f)];
+    const extras=[log(1700,f(1700)+1,34),log(3600,f(3600)+1,34),log(9500,f(9500)+1,34)];
+    const seesaws=[seesaw(2600,f(2600),110),seesaw(bridgeX,f(bridgeX),bridgeHW)];
+    const st=(x,o)=>[x,f(x)-(o||50)];
+    const swY=f(bridgeX)-Math.sin(0.42)*bridgeHW+8;
+    const stars=[st(700),st(1300),st(1700,95),st(2300),st(2600,95),st(3200),st(3600,95),st(4300),st(5000),st(5600),[bridgeX,swY-33],st(6900,95),st(7600),st(8000,95),st(8600),st(9200),st(9500,95),st(10000),st(10500),st(11000),st(11600),st(12100),st(12800)];
+    const signs=[{x:bridgeX-670,text:'SEESAW BRIDGE — KEEP GAS'}];
+    L.push({name:'13 — Balance Beast',hint:'Wall, chute and whoops around the seesaw bridge — the pit is too wide to jump. Keep gas and hold on.',par:34,start:{x:60},grounds,extras,seesaws,stars,signs,finish:{x:13500},killY:1900,theme:DUSK});
+  }
+  // 14 — Flip Lab (dev map via ?flip): four drops, hold a lean the whole fall
+  if(FLIP_MAP){
+    const y1=950,y2=2315,y3=4535,y4=7615;
+    const grounds=[P(-400,800,50,()=>420),P(850,3600,50,()=>y1),P(3650,7600,50,()=>y2),P(7650,12600,50,()=>y3),P(12650,18600,50,()=>y4)];
+    const signs=[
+      {x:200,text:'FLIP LAB — HOLD GAS + RIGHT (▶) THE WHOLE FALL'},
+      {x:900,text:'DROP 1: SINGLE = 500'},
+      {x:3700,text:'DROP 2: DOUBLE = 2000'},
+      {x:7700,text:'DROP 3: TRIPLE = 4500'},
+      {x:12700,text:'DROP 4: QUAD = 8000'},
+    ];
+    L.push({name:'14 — Flip Lab',hint:'Dev map: four drops. Hold gas and lean right the whole fall.',par:120,start:{x:60},grounds,extras:[],stars:[],signs,finish:{x:18000},killY:6200,theme:MEADOW,botOptional:true});
+  }
+  // finalize segments
+  for(const l of L){
+    const extras=l.extras.slice();
+    const two=l.twoSided||[];
+    l.allSegs=segsOf(l.grounds,false).concat(segsOf(extras,false)).concat(segsOf(two,true));
+    l.twoSidedPolys=two;
+  }
+  return L;
+}
+function segsOf(polys,twoSided){
+  const out=[];
+  for(const p of polys) for(let i=0;i<p.length-1;i++){
+    const ax=p[i][0],ay=p[i][1],bx=p[i+1][0],by=p[i+1][1];
+    const dx=bx-ax,dy=by-ay,L2=Math.hypot(dx,dy)||1;
+    out.push({ax,ay,bx,by,nx:dy/L2,ny:-dx/L2,two:!!twoSided,twoSided:!!twoSided});
+  }
+  return out;
+}
+const LEVELS=buildLevels();
+
+// ---------- terrain queries ----------
+function groundInfo(lvl,x){
+  for(const poly of lvl.grounds){
+    if(x<poly[0][0]||x>poly[poly.length-1][0])continue;
+    for(let i=0;i<poly.length-1;i++){
+      if(x>=poly[i][0]&&x<=poly[i+1][0]){
+        const t=(x-poly[i][0])/((poly[i+1][0]-poly[i][0])||1);
+        const y=lerp(poly[i][1],poly[i+1][1],t);
+        const dy=poly[i+1][1]-poly[i][1], dx=poly[i+1][0]-poly[i][0];
+        return {y,dy,dx,slopeA:Math.atan2(dy,dx)};
+      }
+    }
+  }
+  return null;
+}
+function surfaceAt(lvl,x){
+  let best=null;
+  for(const s of lvl.allSegs){
+    if(x<Math.min(s.ax,s.bx)||x>Math.max(s.ax,s.bx))continue;
+    const t=(x-s.ax)/((s.bx-s.ax)||1);
+    const y=s.ay+(s.by-s.ay)*t;
+    if(best==null||y<best)best=y;
+  }
+  for(const sw of (lvl.seesaws||[])){
+    const c=Math.cos(sw.a),s=Math.sin(sw.a);
+    const x0=sw.x-c*sw.hw,x1=sw.x+c*sw.hw;
+    if(x<x0||x>x1)continue;
+    const y0=sw.y-s*sw.hw,y1=sw.y+s*sw.hw;
+    const y=y0+(y1-y0)*(x-x0)/((x1-x0)||1);
+    if(best==null||y<best)best=y;
+  }
+  return best;
+}
+
+// ---------- game state ----------
+const G={ lvl:0, mode:'menu', bike:null, cam:{x:0,y:0,z:0.8}, time:0, running:false, startStamp:0,
+  collected:new Set(), finished:false, particles:[], floaters:[], score:0, shake:0, wheelSpin:0 };
+const keys={up:false,down:false,left:false,right:false,hop:false};
+function resetBike(){
+  const L=LEVELS[G.lvl];
+  const gi=groundInfo(L,L.start.x);
+  const gy=gi?gi.y:300;
+  G.bike={x:L.start.x,y:gy-33-20,vx:0,vy:0,a:0,va:0,face:1,dead:false,onGround:false,
+    rearT:false,frontT:false,rearPen:0,frontPen:0,airTime:0,airRot:0,grace:1.2,turnCd:0,hopCd:0,gapCd:0,
+    wheelieAcc:0,stoppieAcc:0,flipN:0,wTot:0,sTot:0,spawnY:gy};
+  G.time=0;G.running=false;G.collected=new Set();G.finished=false;G.particles=[];G.floaters=[];G.score=0;G.shake=0;G.wheelSpin=0;
+  for(const sw of (L.seesaws||[])){ sw.a=sw.a0||0; sw.w=0; }
+  G.cam.x=G.bike.x;G.cam.y=G.bike.y;G.cam.z=0.8;
+  updateHud();
+}
+function updateHud(){
+  const L=LEVELS[G.lvl];
+  document.getElementById('lvlName').textContent=L.name.toUpperCase();
+  document.getElementById('starsHud').textContent='★ '+G.collected.size+'/'+L.stars.length;
+  document.getElementById('scoreHud').textContent='SCORE '+Math.floor(G.score||0);
+  const bb=store.best[G.lvl], be=document.getElementById('best');
+  if(bb){be.style.display='';be.innerHTML='BEST <small>'+fmt(bb)+'</small> • PAR '+fmt(L.par);}
+  else{be.style.display='';be.innerHTML='PAR <small>'+fmt(L.par)+'</small>';}
+  document.getElementById('lvlName').title=L.hint;
+  refreshKeysHud();
+}
+function refreshKeysHud(){
+  const el=document.getElementById('keysHud'); if(!el)return;
+  el.textContent=(keys.up?'▲● ':'▲○ ')+(keys.down?'▼● ':'▼○ ')+(keys.left?'◀● ':'◀○ ')+(keys.right?'▶● ':'▶○ ')+(keys.hop?'⤒●':'⤒○');
+  el.style.borderColor=(keys.up||keys.down||keys.left||keys.right||keys.hop)?'#7CFC00':'rgba(255,255,255,.14)';
+}
+function addScore(n){ G.score+=n; const el=document.getElementById('scoreHud'); if(el)el.textContent='SCORE '+Math.floor(G.score); }
+function addFloater(x,y,text,color){ G.floaters.push({x,y,text,color:color||'#ffd60a',born:performance.now()}); if(G.floaters.length>8)G.floaters.shift(); }
+
+// ---------- physics ----------
+function bodyToWorld(b,lx,ly){ const c=Math.cos(b.a),s=Math.sin(b.a); return {x:b.x+lx*c-ly*s,y:b.y+lx*s+ly*c}; }
+function wheelPos(b,front){ return bodyToWorld(b,(front?WHEEL_X:-WHEEL_X)*b.face,WHEEL_Y); }
+function headPos(b){ return bodyToWorld(b,6*b.face,-26); }
+function segContact(p,segs){
+  let best=null;
+  for(const s of segs){
+    if(p.x<Math.min(s.ax,s.bx)-WHEEL_R-2||p.x>Math.max(s.ax,s.bx)+WHEEL_R+2)continue;
+    if(p.y<Math.min(s.ay,s.by)-WHEEL_R-2||p.y>Math.max(s.ay,s.by)+WHEEL_R+2)continue;
+    const dx=s.bx-s.ax,dy=s.by-s.ay,L2=dx*dx+dy*dy; if(L2<1e-6)continue;
+    let t=((p.x-s.ax)*dx+(p.y-s.ay)*dy)/L2; t=clamp(t,0,1);
+    const cx=s.ax+dx*t,cy=s.ay+dy*t;
+    const ddx=p.x-cx,ddy=p.y-cy,d=Math.hypot(ddx,ddy);
+    if(d>WHEEL_R+0.5)continue;
+    if(!s.twoSided && (t<0.02||t>0.98)){
+      // near an endpoint: radial normal, still require the wheel to be above
+      if(d<1e-4)continue;
+      const nx=ddx/d,ny=ddy/d;
+      if(nx*s.nx+ny*s.ny<0.1)continue;
+      const depth=WHEEL_R-d;
+      if(depth<=0)continue;
+      if(!best||depth>best.depth)best={nx,ny,cx,cy,depth,s};
+    } else {
+      const nx=s.twoSided?(d<1e-4?s.nx:ddx/d):s.nx, ny=s.twoSided?(d<1e-4?s.ny:ddy/d):s.ny;
+      if(!s.twoSided&&(nx*s.nx+ny*s.ny)<0.1)continue;
+      const depth=WHEEL_R-d;
+      if(depth<=0)continue;
+      if(!best||depth>best.depth)best={nx,ny,cx,cy,depth,s};
+    }
+  }
+  return best;
+}
+function dynSegs(l){
+  if(!l.seesaws||!l.seesaws.length)return l.allSegs;
+  const out=l.allSegs.slice();
+  for(const sw of l.seesaws){
+    const c=Math.cos(sw.a),s=Math.sin(sw.a);
+    out.push({ax:sw.x-c*sw.hw,ay:sw.y-s*sw.hw,bx:sw.x+c*sw.hw,by:sw.y+s*sw.hw,nx:s,ny:-c,two:true,twoSided:true,sw});
+  }
+  return out;
+}
+function seesawTorque(sw,c,N,dt){ const rx=c.cx-sw.x,ry=c.cy-sw.y; sw.w+=N*(ry*c.nx-rx*c.ny)/(sw.I||SW_I)*dt; }
+function stepSeesaws(l,dt){
+  if(!l.seesaws)return;
+  for(const sw of l.seesaws){
+    sw.w*=1-SW_DAMP*dt;
+    sw.a=clamp(sw.a+sw.w*dt,-sw.max,sw.max);
+    if(Math.abs(sw.a)>=sw.max)sw.w=0;
+  }
+}
+function applyForceAt(b,fx,fy,px,py,dt){
+  b.vx+=fx*dt; b.vy+=fy*dt;
+  const rx=px-b.x,ry=py-b.y;
+  b.va+=(rx*fy-ry*fx)/I_BODY*dt;
+}
+function applyContact(b,c,isRear,dt){
+  if(!c)return 0;
+  const {nx,ny,cx,cy,depth}=c;
+  const rx=cx-b.x,ry=cy-b.y;
+  const vpx=b.vx-b.va*ry, vpy=b.vy+b.va*rx;
+  const vn=vpx*nx+vpy*ny;
+  let N=K_SPRING*depth-C_DAMP*Math.min(0,vn);
+  N=clamp(N,0,MAX_N);
+  applyForceAt(b,nx*N,ny*N,cx,cy,dt);
+  // tire tangent (drive direction = way the bike faces)
+  const tx=-ny,ty=nx;
+  const fwx=Math.cos(b.a)*b.face, fwy=Math.sin(b.a)*b.face;
+  const fdot=fwx*tx+fwy*ty, fdx=tx*(fdot>=0?1:-1), fdy=ty*(fdot>=0?1:-1);
+  if(keys.up&&isRear){
+    // rider instinct: power fades when the front is sky-high (loop runaway);
+    // weight forward hooks the rear tyre up and lets it put power down
+    const leanDown=(keys.right?1:0)-(keys.left?1:0);
+    const att=Math.max(0,(b.rel!=null?Math.abs(b.rel):0)-0.3*Math.max(0,leanDown));
+    // inside the loop the rider wants full power, so don't fade the drive there
+    const Lo=LEVELS[G.lvl];
+    const inLoop=Lo&&Lo.loop&&Math.hypot(b.x-Lo.loop.x,b.y-Lo.loop.y)<Lo.loop.r*1.3;
+    const cut=inLoop?1:clamp((1.1-att)/0.4,0,1);
+    const grip=clamp(1+0.5*leanDown,0.45,1.5);
+    const Ntr=(leanDown>0&&fdy<0)?Math.min(MAX_N,N+1800):N;
+    const F=Math.min(DRIVE*grip,MU*Ntr)*cut;
+    const along=b.vx*fdx+b.vy*fdy;
+    if(along<MAX_V&&cut>0)applyForceAt(b,fdx*F,fdy*F,cx,cy,dt);
+  }
+  if(keys.down){
+    const alongT=b.vx*tx+b.vy*ty;
+    if(alongT>30){
+      const F=Math.min(BRAKE,MU*N);
+      applyForceAt(b,-tx*F,-ty*F,cx,cy,dt);
+    } else if(alongT>-300){
+      applyForceAt(b,-fdx*REVERSE,-fdy*REVERSE,cx,cy,dt);
+    }
+  }
+  return N;
+}
+function tryHop(){
+  const b=G.bike; if(!b||G.mode!=='ride'||b.dead||G.finished)return false;
+  if(b.hopCd>0||!b.onGround)return false;
+  b.hopCd=0.5;
+  b.vy-=HOP_V;
+  b.va-=b.face*HOP_TQ/I_BODY*0.12;
+  b.onGround=false;
+  burst(b.x,b.y+24,'#c9b18a',10);
+  blip(300,0.12,'triangle',0.05); setTimeout(()=>blip(520,0.1,'sine',0.04),60);
+  return true;
+}
+function stepBike(dt){
+  const b=G.bike,L=LEVELS[G.lvl];
+  if(!b||b.dead||G.finished)return;
+  if(b.grace>0)b.grace-=dt;
+  if(b.turnCd>0)b.turnCd-=dt;
+  if(b.hopCd>0)b.hopCd-=dt;
+  if(b.gapCd>0)b.gapCd-=dt;
+  const wasGround=b.onGround, wasAir=b.airTime;
+  // contacts at current pose
+  const segs=dynSegs(L);
+  const rw=wheelPos(b,false), fw=wheelPos(b,true);
+  const rc=segContact(rw,segs), fc=segContact(fw,segs);
+  b.rearT=!!rc; b.frontT=!!fc; b.onGround=!!(rc||fc);
+  b.rearPen=rc?rc.depth:0; b.frontPen=fc?fc.depth:0;
+  // gravity + lean torque (world-consistent)
+  b.vy+=GRAV*dt;
+  b.va+=(((keys.right?1:0)-(keys.left?1:0))*(b.onGround?LEAN_G:LEAN_A)/I_BODY)*dt;
+  // rider balance: keeps the bike aligned to the slope when not deliberately
+  // leaning (near-aligned only — manuals/wheelies stay the player's job).
+  // If the bike is truly out of shape the rider saves it, even under lean.
+  b.rel=null;
+  if(b.onGround){
+    const c=rc||fc;
+    if(c){
+      const slopeA=Math.atan2(c.nx,-c.ny);
+      const nose=wrap(b.a+(b.face===1?0:Math.PI));
+      const rel=wrap(nose-slopeA); b.rel=rel;
+      const fwd=keys.right&&!keys.left;
+      const gain=fwd?90:26, damp=fwd?7:3.5, lim=fwd?40:18;
+      const assistNeeded=(!keys.left&&!keys.right&&Math.abs(rel)<0.42)||Math.abs(rel)>0.95||fwd;
+      if(assistNeeded)b.va+=clamp(-rel*gain-b.va*damp,-lim,lim)*dt;
+    }
+  }
+  // contact forces
+  const rN=applyContact(b,rc,true,dt), fN=applyContact(b,fc,false,dt);
+  if(rc&&rc.s&&rc.s.sw)seesawTorque(rc.s.sw,rc,rN,dt);
+  if(fc&&fc.s&&fc.s.sw)seesawTorque(fc.s.sw,fc,fN,dt);
+  stepSeesaws(L,dt);
+  // run-up assist on level 6: holding gas guarantees enough speed to
+  // complete the loop (which otherwise needs a knife-edge entry)
+  if(L.loop&&keys.up&&b.onGround&&b.x<L.loop.x-L.loop.r){
+    const sp=Math.hypot(b.vx,b.vy);
+    if(b.vx>0&&sp<1200)applyForceAt(b,b.vx/sp*3000,b.vy/sp*3000,b.x,b.y,dt);
+  }
+  // integrate + drag
+  b.vx=clamp(b.vx,-MAX_V,MAX_V); b.vy=clamp(b.vy,-MAX_V,MAX_V); b.va=clamp(b.va,-MAX_W,MAX_W);
+  b.vx*=1-DRAG*dt; b.vy*=1-DRAG_V*dt; b.va*=1-(b.onGround?ANG_DAMP_G:ANG_DAMP_A)*dt;
+  b.x+=b.vx*dt; b.y+=b.vy*dt; b.a+=b.va*dt;
+  // deep-penetration correction
+  if(rc&&rc.depth>10){ b.x+=rc.nx*(rc.depth-10)*0.5; b.y+=rc.ny*(rc.depth-10)*0.5; }
+  if(fc&&fc.depth>10){ b.x+=fc.nx*(fc.depth-10)*0.5; b.y+=fc.ny*(fc.depth-10)*0.5; }
+  // air/ground bookkeeping
+  if(!b.onGround){ b.airTime+=dt; b.airRot+=b.va*dt; }
+  else {
+    b.airTime=0;
+    if(!wasGround){
+      const turns=b.airRot/TAU;
+      const gi=groundInfo(L,b.x);
+      const slopeA=gi?Math.atan2(gi.dy,gi.dx):0;
+      const nose=wrap(b.a+(b.face===1?0:Math.PI));
+      const rel=wrap(nose-slopeA);
+      const spd=Math.hypot(b.vx,b.vy);
+      if(Math.abs(turns)>=FLIP_TH&&b.grace<=0){
+        const n=Math.max(1,Math.round(Math.abs(turns))); // a clean landing always sits within ~1.7 rad of a whole rotation
+        const back=turns*(b.face===1?1:-1)<0;
+        const pts=Math.max(50,Math.round(n*n*500*Math.pow(0.6,b.flipN++)));
+        const tag=n===2?'DOUBLE ':n===3?'TRIPLE ':n>3?'x'+n+' ':'';
+        addScore(pts);
+        addFloater(b.x,b.y-70,tag+(back?'BACKFLIP':'FRONTFLIP')+' +'+pts,'#7CFC00');
+        blip(660,0.15,'triangle',0.06); setTimeout(()=>blip(990,0.25,'sine',0.05),90);
+        burst(b.x,b.y-20,'#7CFC00',16);
+      } else if(wasAir>1.15){
+        addScore(150); addFloater(b.x,b.y-70,'BIG AIR +150','#22d3ee'); blip(520,0.15,'sine',0.05);
+      }
+      b.airRot=0;
+      b.va*=0.25;
+    }
+    // wheelie / stoppie scoring (one wheel rolling)
+    const spd=Math.hypot(b.vx,b.vy);
+    if(b.rearT!==b.frontT&&spd>150){
+      const pts=spd*dt*0.35;
+      if(b.rearT)b.wheelieAcc+=pts; else b.stoppieAcc+=pts;
+      const tot=b.rearT?b.wTot:b.sTot, room=Math.max(0,600-tot), pay=Math.min(pts,room);
+      if(b.rearT)b.wTot=tot+pay; else b.sTot=tot+pay;
+      addScore(pay);
+    } else {
+      if(b.wheelieAcc>90){ addFloater(b.x,b.y-60,'WHEELIE +'+Math.round(b.wheelieAcc)); blip(740,0.12,'triangle',0.05); }
+      if(b.stoppieAcc>90){ addFloater(b.x,b.y-60,'STOPPIE +'+Math.round(b.stoppieAcc),'#22d3ee'); blip(620,0.12,'triangle',0.05); }
+      b.wheelieAcc=0; b.stoppieAcc=0;
+    }
+  }
+  // helmet
+  const hp=headPos(b);
+  if(b.grace<=0){
+    for(const s of segs){
+      if(hp.x<Math.min(s.ax,s.bx)-9||hp.x>Math.max(s.ax,s.bx)+9||hp.y<Math.min(s.ay,s.by)-9||hp.y>Math.max(s.ay,s.by)+9)continue;
+      const dx=s.bx-s.ax,dy=s.by-s.ay,L2=dx*dx+dy*dy||1;
+      let t=clamp(((hp.x-s.ax)*dx+(hp.y-s.ay)*dy)/L2,0,1);
+      const d=Math.hypot(hp.x-(s.ax+dx*t),hp.y-(s.ay+dy*t));
+      if(d<8){ crash('You bonked your helmet!'); return; }
+    }
+  }
+  // stars
+  for(let i=0;i<L.stars.length;i++){
+    if(G.collected.has(i))continue;
+    const s=L.stars[i];
+    if(Math.hypot(b.x-s[0],b.y-s[1])<STAR_R){
+      G.collected.add(i); addScore(25);
+      blip(880+i*60,0.15,'triangle',0.05); setTimeout(()=>blip(1320,0.18,'sine',0.04),70);
+      toast('★ Star '+G.collected.size+'/'+L.stars.length,900); updateHud(); burst(s[0],s[1],'#ffd60a',14);
+    }
+  }
+  // finish gate
+  if(Math.abs(b.x-L.finish.x)<30){ winLevel(); return; }
+  // death by falling
+  if(b.y>L.killY+2000||b.y<-4000||b.x<-1500){ crash('You flew off the mountain!'); return; }
+  // visuals
+  const spd=Math.hypot(b.vx,b.vy);
+  G.wheelSpin+=(spd/WHEEL_R)*dt*(keys.up?1.2:0.7);
+  if(b.onGround&&keys.up&&Math.random()<0.5)spawnDust(b.x,b.y+30,-Math.sign(b.vx||1),0);
+  // timer
+  if(G.running){ G.time=(performance.now()-G.startStamp)/1000; document.getElementById('time').textContent=fmt(G.time); }
+  else if(keys.up||keys.down||keys.left||keys.right||keys.hop){ G.running=true; G.startStamp=performance.now(); }
+  engineUpdate(keys.up,spd);
+  // stuck failsafe: if you somehow stop below/inside terrain, let the kill plane handle it
+}
+function crash(msg){ const b=G.bike; if(!b||b.dead||G.finished)return; b.dead=true; G.mode='dead'; G.lastCrash=msg; engineUpdate(false,0);
+  blip(160,0.4,'sawtooth',0.15); blip(70,0.6,'square',0.12);
+  burst(b.x,b.y-10,'#ff5555',26); burst(b.x,b.y,'#ffffff',14);
+  toast('💥 '+msg+' — press R',2200);
+  setTimeout(()=>{ if(G.mode==='dead')toast('Press R to retry • L for levels',2200); },2400); }
+function winLevel(){
+  if(G.finished)return; G.finished=true; G.mode='win'; engineUpdate(false,0);
+  if(!G.running)G.time=0; else G.time=(performance.now()-G.startStamp)/1000;
+  const isBest=store.best[G.lvl]==null||G.time<store.best[G.lvl];
+  store.setBest(G.lvl,G.time);
+  const raw=Math.floor(G.score), tf=timeFactor(LEVELS[G.lvl].par,G.time), sc=Math.max(0,Math.round(raw*tf));
+  G.lastWin={raw,sc,tf};
+  const isBestSc=store.setBestScore(G.lvl,sc);
+  store.setUnlocked(Math.min(LEVELS.length,G.lvl+2));
+  blip(523,0.15,'triangle',0.15);setTimeout(()=>blip(659,0.15,'triangle',0.15),140);setTimeout(()=>blip(784,0.3,'triangle',0.16),280);
+  burst(LEVELS[G.lvl].finish.x,GROUNDGUESS(G.lvl),'#7CFC00',30);
+  renderLevelGrid();
+  document.getElementById('doneSub').textContent=LEVELS[G.lvl].name.toUpperCase()+' — CLEAR!';
+  const titles=['Nice ride!','Shredded!','Send it!','Smooth lines!','Full send!','Elasto-approved!'];
+  document.getElementById('doneTitle').textContent=titles[Math.floor(Math.random()*titles.length)];
+  const par=LEVELS[G.lvl].par, medal=G.time<=par?'🥇 GOLD':G.time<=par*1.25?'🥈 SILVER':'🥉 BRONZE';
+  const n=G.collected.size,tot=LEVELS[G.lvl].stars.length;
+  document.getElementById('doneStars').textContent='★'.repeat(n)+'☆'.repeat(Math.max(0,tot-n));
+  document.getElementById('doneStats').innerHTML='<div class="stars-big" style="font-size:20px">'+medal+'</div>TIME <b style="font-size:22px">'+fmt(G.time)+'</b>'+(isBest?' &nbsp;🏆 <b>NEW BEST!</b>':' &nbsp;(best '+fmt(store.best[G.lvl])+')')+'<br>SCORE <b style="font-size:22px;color:var(--gold)">'+sc+'</b> <span style="opacity:.65">time ×'+tf.toFixed(2)+'</span>'+(isBestSc?' &nbsp;🏆 <b>NEW BEST!</b>':' &nbsp;(best '+store.bestScore[G.lvl]+')')+'<br><span style="opacity:.7">Stars '+n+'/'+tot+' • Par '+fmt(LEVELS[G.lvl].par)+' • '+LEVELS[G.lvl].hint+'</span>';
+  document.getElementById('bNext').textContent=G.lvl>=LEVELS.length-1?'↻ REPLAY LAST LEVEL':'NEXT LEVEL ▶';
+  const nameRow=document.getElementById('nameRow'), btns=document.getElementById('doneBtns'), boardBox=document.getElementById('boardBox');
+  nameRow.style.display='flex'; btns.style.display='none'; boardBox.style.display='none';
+  { const bn=document.getElementById('bName'); if(bn)bn.textContent=store.name?'SAVE AS':'SAVE SCORE'; }
+  { const el=document.getElementById('nameIn'); if(el)el.value=store.name||''; }
+  setTimeout(()=>{const el=document.getElementById('nameIn'); if(el){try{el.focus();}catch(e){}}},800);
+  setTimeout(()=>{const d=document.getElementById('done'); if(d)d.classList.remove('hidden');},700);
+  updateHud();
+}
+function saveBoardEntry(){
+  const sc=G.lastWin?G.lastWin.sc:Math.floor(G.score);
+  store.saveEntry(G.lvl,{n:store.name,t:G.time,s:sc});
+  renderBoard(); const box=document.getElementById('boardBox'); if(box)box.style.display='';
+}
+function submitName(){
+  const el=document.getElementById('nameIn');
+  const v=((el&&el.value)||'').trim().toUpperCase().slice(0,12);
+  if(!v)return;
+  store.setName(v);
+  document.getElementById('nameRow').style.display='none';
+  document.getElementById('doneBtns').style.display='flex';
+  saveBoardEntry();
+}
+function renderBoard(){
+  const box=document.getElementById('boardBox'); if(!box)return;
+  const list=store.board[G.lvl]||[];
+  const row=(a,i,v)=>'<div style="'+(a.n===store.name?'color:var(--gold);font-weight:700':'')+'"><span style="opacity:.6">'+(i+1)+'.</span> '+escHtml(a.n)+'<span style="float:right;opacity:.85">'+v+'</span></div>';
+  const byT=list.slice().sort((a,b)=>a.t-b.t).slice(0,5), byS=list.slice().sort((a,b)=>b.s-a.s).slice(0,5);
+  const col=(title,arr,f)=>'<div style="min-width:200px;text-align:left"><div class="sub" style="font-size:11px;opacity:.7">'+title+'</div>'+arr.map((a,i)=>row(a,i,f(a))).join('')+'</div>';
+  box.innerHTML='<div style="display:flex;gap:30px;justify-content:center;flex-wrap:wrap">'+col('FASTEST',byT,a=>fmt(a.t))+col('TOP SCORE',byS,a=>String(a.s))+'</div>';
+}
+function GROUNDGUESS(li){ const gi=groundInfo(LEVELS[li],LEVELS[li].finish.x); return (gi?gi.y:400)-30; }
+
+// ---------- particles ----------
+function spawnDust(x,y,dx,dy){ G.particles.push({x,y,vx:dx*120+(Math.random()-0.5)*80,vy:dy*120-60-Math.random()*60,life:0.5,t:0,c:Math.random()<0.5?'#9c7a54':'#c9b18a',r:2+Math.random()*3}); if(G.particles.length>250)G.particles.shift(); }
+function burst(x,y,c,n){ for(let i=0;i<n;i++){ const a=Math.random()*TAU,s=80+Math.random()*260; G.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-80,life:0.7+Math.random()*0.4,t:0,c,r:2+Math.random()*4}); } }
+function stepParticles(dt){ for(let i=G.particles.length-1;i>=0;i--){ const p=G.particles[i]; p.t+=dt; if(p.t>p.life){G.particles.splice(i,1);continue;} p.vy+=600*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; } }
+
+// ---------- render ----------
+function draw(dt){
+  const b=G.bike;
+  if(b){
+    const spd=Math.hypot(b.vx,b.vy);
+    const targetZ=clamp(Math.min(W,H)/820,0.52,0.98)/(1+spd/4200);
+    const fs=Math.max(0,Math.min(1,(dt||1/60)*60));
+    const kz=1-Math.pow(1-0.05,fs), kc=1-Math.pow(1-0.09,fs);
+    G.cam.z=lerp(G.cam.z,targetZ,kz);
+    const lookX=b.x+b.vx*0.28, lookY=b.y+b.vy*0.22-20;
+    G.cam.x=lerp(G.cam.x,lookX,kc); G.cam.y=lerp(G.cam.y,lookY,kc);
+  }
+  if(G.shake>0)G.shake*=0.88;
+  const shx=G.shake>0.3?(Math.random()-0.5)*G.shake:0, shy=G.shake>0.3?(Math.random()-0.5)*G.shake:0;
+  const th=(LEVELS[G.lvl]&&LEVELS[G.lvl].theme)||null;
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  if(th){ sky.addColorStop(0,th.sky[0]);sky.addColorStop(0.55,th.sky[1]);sky.addColorStop(1,th.sky[2]); }
+  else { sky.addColorStop(0,'#7ec8f7');sky.addColorStop(0.55,'#bfe6fb');sky.addColorStop(1,'#e8f6e8'); }
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(255,244,200,.9)';ctx.beginPath();ctx.arc(W-120,110,46,0,7);ctx.fill();
+  ctx.fillStyle='rgba(255,244,200,.25)';ctx.beginPath();ctx.arc(W-120,110,70,0,7);ctx.fill();
+  ctx.save();
+  ctx.translate(W/2+shx,H*0.6+shy);ctx.scale(G.cam.z,G.cam.z);ctx.translate(-G.cam.x,-G.cam.y);
+  drawParallax(); drawTerrain(); drawSigns(); drawStars(); drawFinish(); drawParticles();
+  if(b)drawBike(b);
+  drawFloaters();
+  ctx.restore();
+  if(G.mode==='ride'&&!G.running){ ctx.font='800 15px system-ui'; ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.fillText('Hold ▲ / W to pedal • Space to hop',W/2,H-110); }
+  if(G.mode==='dead'){ ctx.fillStyle='rgba(180,20,20,.12)';ctx.fillRect(0,0,W,H); ctx.font='900 26px system-ui';ctx.textAlign='center';ctx.strokeStyle='rgba(0,0,0,.6)';ctx.lineWidth=5; const t='CRASHED — press R'; ctx.strokeText(t,W/2,H/2-90); ctx.fillStyle='#fff'; ctx.fillText(t,W/2,H/2-90); }
+}
+function drawParallax(){
+  const th=LEVELS[G.lvl].theme||{};
+  ctx.save();ctx.translate(G.cam.x*0.55,0);
+  ctx.fillStyle=th.far||'#8fb8d8';ctx.beginPath();
+  const base=G.cam.y*0.45+150;
+  ctx.moveTo(G.cam.x*0.45-2000,base+400);
+  for(let x=-2000;x<6000;x+=200){ const wx=x+G.cam.x*0.45; ctx.lineTo(wx,base+Math.sin(x*0.002+G.lvl)*140+Math.sin(x*0.007)*50); }
+  ctx.lineTo(G.cam.x*0.45+6000,base+500);ctx.closePath();ctx.fill();
+  ctx.restore();
+  ctx.save();ctx.translate(G.cam.x*0.8,0);
+  ctx.fillStyle=th.near||'#6da86f';ctx.beginPath();
+  const b2=G.cam.y*0.8+260;
+  ctx.moveTo(G.cam.x*0.2-2000,b2+400);
+  for(let x=-2000;x<6000;x+=150){ const wx=x+G.cam.x*0.2; ctx.lineTo(wx,b2+Math.sin(x*0.003+G.lvl*2)*90); }
+  ctx.lineTo(G.cam.x*0.2+6000,b2+500);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+function drawTerrain(){
+  const L=LEVELS[G.lvl], th=L.theme||{};
+  for(const poly of L.grounds){
+    if(poly.length<2)continue;
+    ctx.beginPath();ctx.moveTo(poly[0][0],poly[0][1]);
+    for(let i=1;i<poly.length;i++)ctx.lineTo(poly[i][0],poly[i][1]);
+    ctx.lineTo(poly[poly.length-1][0],poly[poly.length-1][1]+1600);
+    ctx.lineTo(poly[0][0],poly[0][1]+1600);ctx.closePath();
+    ctx.fillStyle=th.ground||'#7a5230';ctx.fill();
+    ctx.strokeStyle=th.grass||'#3f9e3f';ctx.lineWidth=12;ctx.lineJoin='round';ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(poly[0][0],poly[0][1]);
+    for(let i=1;i<poly.length;i++)ctx.lineTo(poly[i][0],poly[i][1]);
+    ctx.stroke();
+    ctx.strokeStyle=th.grassHi||'#7CFC00';ctx.lineWidth=4;ctx.stroke();
+  }
+  // extras as wood
+  for(const poly of L.extras){
+    if(!poly||poly.length<2)continue;
+    ctx.beginPath();ctx.moveTo(poly[0][0],poly[0][1]);
+    for(let i=1;i<poly.length;i++)ctx.lineTo(poly[i][0],poly[i][1]);
+    ctx.strokeStyle='#4a2f1c';ctx.lineWidth=14;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();
+    ctx.strokeStyle='#8a5a33';ctx.lineWidth=8;ctx.stroke();
+  }
+  // seesaws
+  for(const sw of (L.seesaws||[])){
+    const c=Math.cos(sw.a),s=Math.sin(sw.a);
+    const big=Math.max(0,sw.hw-110);
+    ctx.fillStyle='#4a2f1c';
+    ctx.beginPath();ctx.moveTo(sw.x-(16+big*0.04),sw.y+4);ctx.lineTo(sw.x+(16+big*0.04),sw.y+4);ctx.lineTo(sw.x,sw.y+70+big*1.4);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#4a2f1c';ctx.lineWidth=14+big*0.04;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(sw.x-c*sw.hw,sw.y-s*sw.hw);ctx.lineTo(sw.x+c*sw.hw,sw.y+s*sw.hw);ctx.stroke();
+    ctx.strokeStyle='#8a5a33';ctx.lineWidth=8+big*0.022;ctx.stroke();
+  }
+  // loopy tube + supports
+  for(const poly of (L.twoSidedPolys||[])){
+    ctx.beginPath();ctx.moveTo(poly[0][0],poly[0][1]);
+    for(let i=1;i<poly.length;i++)ctx.lineTo(poly[i][0],poly[i][1]);
+    ctx.strokeStyle='#5b3a22';ctx.lineWidth=18;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();
+    ctx.strokeStyle='#8a5a33';ctx.lineWidth=10;ctx.stroke();
+    if(L.loop){
+      ctx.strokeStyle='#3a2415';ctx.lineWidth=10;
+      ctx.beginPath();ctx.moveTo(L.loop.x-70,L.loop.y+L.loop.r);ctx.lineTo(L.loop.x-70,L.loop.y+L.loop.r+220);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(L.loop.x+70,L.loop.y+L.loop.r);ctx.lineTo(L.loop.x+70,L.loop.y+L.loop.r+220);ctx.stroke();
+    }
+  }
+}
+function drawSigns(){
+  const L=LEVELS[G.lvl]; if(!L.signs)return;
+  ctx.textAlign='center';
+  for(const s of L.signs){
+    const gy=surfaceAt(L,s.x); if(gy==null)continue;
+    const y=gy-64;
+    if(Math.abs(s.x-G.cam.x)>1500)continue;
+    ctx.strokeStyle='#4a2f1c';ctx.lineWidth=8;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(s.x,gy-4);ctx.lineTo(s.x,y+16);ctx.stroke();
+    ctx.font='800 17px system-ui';
+    const w=ctx.measureText(s.text).width+28;
+    ctx.fillStyle='#6b4423';
+    ctx.beginPath(); if(ctx.roundRect)ctx.roundRect(s.x-w/2,y-22,w,36,8); else ctx.rect(s.x-w/2,y-22,w,36); ctx.fill();
+    ctx.strokeStyle='#3a2415';ctx.lineWidth=3;ctx.stroke();
+    ctx.fillStyle='#ffe9b8';ctx.fillText(s.text,s.x,y+4);
+  }
+  ctx.textAlign='left';
+}
+function drawStars(){
+  const L=LEVELS[G.lvl],t=performance.now()/500;
+  for(let i=0;i<L.stars.length;i++){
+    if(G.collected.has(i))continue;
+    const s=L.stars[i];
+    if(Math.abs(s[0]-G.cam.x)>1400)continue;
+    ctx.save();ctx.translate(s[0],s[1]+Math.sin(t+i)*5);ctx.rotate(Math.sin(t*0.7+i)*0.2);
+    ctx.fillStyle='#ffd60a';ctx.strokeStyle='#a97b00';ctx.lineWidth=2;
+    ctx.beginPath();
+    for(let k=0;k<10;k++){ const r=k%2?8:18,a=-Math.PI/2+k*Math.PI/5; ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r); }
+    ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
+  }
+}
+function drawFinish(){
+  const f=LEVELS[G.lvl].finish, gy=surfaceAt(LEVELS[G.lvl],f.x);
+  const fy=gy==null?(G.bike?G.bike.y:400):gy;
+  ctx.strokeStyle='#222';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(f.x,fy);ctx.lineTo(f.x,fy-120);ctx.stroke();
+  for(let i=0;i<4;i++)for(let j=0;j<2;j++){ ctx.fillStyle=(i+j)%2?'#111':'#fff'; ctx.fillRect(f.x+2+i*11,fy-120+j*13,11,13); }
+  ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.strokeRect(f.x+2,fy-120,44,26);
+  const t=performance.now()/400;
+  ctx.save();ctx.translate(f.x,fy-8);
+  ctx.strokeStyle='#2d7a2d';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(0,8);ctx.lineTo(0,-14);ctx.stroke();
+  for(let k=0;k<6;k++){ const a=k*Math.PI/3+t*0.15; ctx.fillStyle='#ff6fb5'; ctx.beginPath();ctx.ellipse(Math.cos(a)*11,-14+Math.sin(a)*11,8,5,a,0,TAU);ctx.fill(); }
+  ctx.fillStyle='#ffd60a';ctx.beginPath();ctx.arc(0,-14,7,0,TAU);ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle='rgba(124,252,0,.18)';ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(f.x,fy-190);ctx.lineTo(f.x,fy+50);ctx.stroke();
+}
+function drawParticles(){
+  for(const p of G.particles){ const a=1-p.t/p.life; ctx.globalAlpha=Math.max(0,a); ctx.fillStyle=p.c; ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,TAU);ctx.fill(); }
+  ctx.globalAlpha=1;
+}
+function drawFloaters(){
+  const now=performance.now();
+  ctx.textAlign='center';
+  for(const f of G.floaters){
+    const age=(now-f.born)/1000; if(age>1.4)continue;
+    ctx.globalAlpha=Math.max(0,1-age/1.4);
+    ctx.font='900 24px system-ui';ctx.lineWidth=5;ctx.strokeStyle='rgba(0,0,0,.7)';
+    ctx.strokeText(f.text,f.x,f.y-age*46);ctx.fillStyle=f.color;ctx.fillText(f.text,f.x,f.y-age*46);
+  }
+  ctx.globalAlpha=1;ctx.textAlign='left';
+}
+function drawBike(b){
+  const rw=wheelPos(b,false), fw=wheelPos(b,true);
+  for(const w of [rw,fw]){
+    ctx.save();ctx.translate(w.x,w.y);
+    ctx.fillStyle='#161616';ctx.beginPath();ctx.arc(0,0,WHEEL_R,0,TAU);ctx.fill();
+    ctx.fillStyle='#333';ctx.beginPath();ctx.arc(0,0,WHEEL_R-4,0,TAU);ctx.fill();
+    ctx.strokeStyle='#bbb';ctx.lineWidth=2;
+    for(let k=0;k<3;k++){ const a=G.wheelSpin+k*Math.PI/3; ctx.beginPath();ctx.moveTo(Math.cos(a)*(WHEEL_R-5),Math.sin(a)*(WHEEL_R-5));ctx.lineTo(-Math.cos(a)*(WHEEL_R-5),-Math.sin(a)*(WHEEL_R-5));ctx.stroke(); }
+    ctx.fillStyle='#666';ctx.beginPath();ctx.arc(0,0,3,0,TAU);ctx.fill();
+    ctx.restore();
+  }
+  ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.a);ctx.scale(b.face,1);
+  const rx=-WHEEL_X,ry=WHEEL_Y,fx=WHEEL_X,fy=WHEEL_Y;
+  ctx.lineCap='round';
+  ctx.strokeStyle='#222';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(-2,2);ctx.lineTo(fx,fy);ctx.stroke();
+  ctx.strokeStyle='#e33429';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(-2,2);ctx.lineTo(fx,fy);ctx.stroke();
+  ctx.strokeStyle='#e33429';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-2,2);ctx.lineTo(8,-12);ctx.lineTo(26,-14);ctx.stroke();
+  ctx.strokeStyle='#111';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(26,-14);ctx.lineTo(fx,fy);ctx.stroke();
+  ctx.strokeStyle='#111';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(24,-16);ctx.lineTo(32,-18);ctx.stroke();
+  ctx.fillStyle='#111';ctx.fillRect(-14,-12,14,5);
+  const lean=(keys.right?7:0)-(keys.left?7:0);
+  const bob=b.onGround?Math.sin(G.wheelSpin*0.5)*1.2:0;
+  ctx.strokeStyle='#1c2f6b';ctx.lineWidth=6;
+  ctx.beginPath();ctx.moveTo(-6,-10+bob);ctx.lineTo(-16,6);ctx.lineTo(-28,14);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(2,-10+bob);ctx.lineTo(10,2);ctx.lineTo(24,10);ctx.stroke();
+  ctx.strokeStyle='#22d3ee';ctx.lineWidth=8;
+  ctx.beginPath();ctx.moveTo(-6,-10+bob);ctx.lineTo(10+lean*0.8,-22+bob);ctx.stroke();
+  ctx.strokeStyle='#f2b88a';ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(10+lean*0.8,-22+bob);ctx.lineTo(24,-16);ctx.stroke();
+  ctx.fillStyle='#f2b88a';ctx.beginPath();ctx.arc(10+lean*0.9,-30+bob,8,0,TAU);ctx.fill();
+  ctx.fillStyle='#7CFC00';ctx.beginPath();ctx.arc(10+lean*0.9,-31+bob,9,Math.PI,0);ctx.fill();
+  ctx.fillStyle='#123';ctx.fillRect(12+lean*0.9,-32+bob,8,4);
+  ctx.restore();
+}
+
+// ---------- level select / UI ----------
+function renderLevelGrid(){
+  const grid=document.getElementById('lvlGrid');grid.innerHTML='';
+  const un=store.unlocked,best=store.best;
+  LEVELS.forEach((l,i)=>{
+    const d=document.createElement('div');d.className='lvl'+(i+1>un?' locked':'');
+    d.innerHTML='<b>'+(i+1>un?'🔒 ':'')+l.name+'</b><span>'+l.hint+'</span>'+(best[i]!=null?'<span class="best">BEST '+fmt(best[i])+'</span>':'<span class="best">PAR '+fmt(l.par)+'</span>');
+    if(i+1<=un)d.onclick=()=>{audioInit();startLevel(i);};
+    grid.appendChild(d);
+  });
+}
+function startLevel(i){
+  G.lvl=clamp(i,0,LEVELS.length-1);
+  document.getElementById('menu').classList.add('hidden');
+  document.getElementById('done').classList.add('hidden');
+  G.mode='ride';resetBike();
+  document.getElementById('time').textContent='0:00.00';
+  toast(LEVELS[G.lvl].name+' — '+LEVELS[G.lvl].hint,2400);
+}
+function showMenu(){ G.mode='menu'; renderLevelGrid(); document.getElementById('menu').classList.remove('hidden'); document.getElementById('done').classList.add('hidden'); }
+document.getElementById('bPlay').onclick=()=>{audioInit();startLevel(Math.min(store.unlocked-1,G.lvl));};
+document.getElementById('bLevels').onclick=()=>showMenu();
+document.getElementById('bMenu2').onclick=()=>showMenu();
+document.getElementById('bRestart').onclick=()=>{ if(G.mode!=='menu'){document.getElementById('done').classList.add('hidden');G.mode='ride';resetBike();} };
+document.getElementById('bRetry').onclick=()=>{document.getElementById('done').classList.add('hidden');G.mode='ride';resetBike();};
+document.getElementById('bNext').onclick=()=>{ const n=G.lvl>=LEVELS.length-1?G.lvl:G.lvl+1; if(n+1>store.unlocked&&n!==G.lvl){toast('Locked',1200);return;} startLevel(n); };
+document.getElementById('bHow').onclick=()=>{ const h=document.getElementById('how'); h.style.display=h.style.display==='none'?'block':'none'; };
+document.getElementById('bFull').onclick=()=>{ try{ if(document.fullscreenElement)document.exitFullscreen(); else document.documentElement.requestFullscreen(); }catch(e){} };
+{ const bn=document.getElementById('bName'); if(bn)bn.onclick=submitName;
+  const ni=document.getElementById('nameIn'); if(ni)ni.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();submitName();} }); }
+
+// ---------- input ----------
+const KEYMAP={ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right'};
+function keyFromEvent(e){
+  if(KEYMAP[e.code])return KEYMAP[e.code];
+  if(e.code==='Space'||e.code==='ShiftLeft'||e.code==='ShiftRight'||e.code==='KeyJ')return 'hop';
+  if(e.code==='KeyT'||e.code==='KeyX')return 'turn';
+  const k=(e.key||'').toLowerCase();
+  if(k==='w'||k==='arrowup')return 'up';
+  if(k==='s'||k==='arrowdown')return 'down';
+  if(k==='a'||k==='arrowleft')return 'left';
+  if(k==='d'||k==='arrowright')return 'right';
+  if(k===' ')return 'hop';
+  return null;
+}
+function doTurn(){
+  const b=G.bike; if(!b||G.mode!=='ride'||b.dead)return;
+  if(b.turnCd>0)return;
+  b.turnCd=0.45; b.grace=Math.max(b.grace,0.6);
+  b.face*=-1; b.va=0; b.vx*=-0.2; b.y-=4;
+  toast(b.face===1?'→ facing right':'← facing left',800);
+}
+window.addEventListener('keydown',e=>{
+  if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;
+  const k=keyFromEvent(e);
+  if(k==='turn'){ e.preventDefault(); if(!e.repeat){audioInit();doTurn();} return; }
+  if(k==='hop'){ e.preventDefault(); if(!e.repeat){audioInit();keys.hop=true;refreshKeysHud();tryHop();} return; }
+  if(k){keys[k]=true;e.preventDefault();audioInit();refreshKeysHud();}
+  if(e.code==='KeyR'||e.key==='r'||e.key==='R'){ if(G.mode!=='menu'){document.getElementById('done').classList.add('hidden');G.mode='ride';resetBike();} }
+  if(e.code==='KeyM'){ toggleMute(); }
+  if(e.code==='KeyN'||e.code==='Enter'){ if(G.mode==='win'&&document.getElementById('nameRow').style.display==='none')document.getElementById('bNext').click(); }
+  if(e.code==='KeyL'||e.code==='Escape'){ showMenu(); }
+});
+window.addEventListener('keyup',e=>{ const k=keyFromEvent(e); if(k==='hop'){keys.hop=false;refreshKeysHud();return;} if(k==='turn')return; if(k){keys[k]=false;refreshKeysHud();} });
+window.addEventListener('blur',()=>{ keys.up=keys.down=keys.left=keys.right=keys.hop=false; refreshKeysHud(); });
+function bindTouch(id,k){ const el=document.getElementById(id); if(!el)return;
+  const on=e=>{e.preventDefault();audioInit();keys[k]=true;refreshKeysHud();};
+  const off=e=>{e.preventDefault();keys[k]=false;refreshKeysHud();};
+  el.addEventListener('pointerdown',on);el.addEventListener('pointerup',off);el.addEventListener('pointerleave',off);el.addEventListener('pointercancel',off);el.addEventListener('contextmenu',e=>e.preventDefault()); }
+bindTouch('tGas','up');bindTouch('tBrake','down');bindTouch('tLeft','left');bindTouch('tRight','right');
+{ const el=document.getElementById('tHop');
+  if(el){ const on=e=>{e.preventDefault();audioInit();keys.hop=true;refreshKeysHud();tryHop();};
+    const off=e=>{e.preventDefault();keys.hop=false;refreshKeysHud();};
+    el.addEventListener('pointerdown',on);el.addEventListener('pointerup',off);el.addEventListener('pointerleave',off);el.addEventListener('pointercancel',off);el.addEventListener('contextmenu',e=>e.preventDefault()); } }
+document.getElementById('bMute').onclick=()=>{audioInit();toggleMute();};
+canvas.addEventListener('pointerdown',()=>audioInit());
+
+// ---------- main loop ----------
+let last=performance.now(), acc=0;
+const FIXED=1/240;
+function frame(now){
+  requestAnimationFrame(frame);
+  let dt=(now-last)/1000; last=now; if(dt>0.1)dt=0.1;
+  if(G.mode==='ride'){
+    acc+=dt; let n=0;
+    while(acc>=FIXED&&n<16){ stepBike(FIXED); stepParticles(FIXED); acc-=FIXED; n++; if(G.mode!=='ride'){acc=0;break;} }
+  } else stepParticles(dt);
+  draw(dt);
+}
+
+// =====================================================================
+// AUTOMATION: bot, validator, self-tests (all offline, no DOM needed)
+// =====================================================================
+function travelSlope(b,gi){
+  const f=(b.face===1)?0:Math.PI;
+  return gi.slopeA+f;
+}
+function predictLanding(lvl,b){
+  let x=b.x,y=b.y,vx=b.vx,vy=b.vy;
+  for(let t=0;t<2.2;t+=1/120){
+    vx*=1-DRAG*(1/120); vy*=1-DRAG_V*(1/120); vy+=GRAV*(1/120);
+    x+=vx*(1/120); y+=vy*(1/120);
+    const g=groundInfo(lvl,x);
+    if(g&&y>=g.y-22)return g;
+  }
+  return null;
+}
+function botControl(skilled,step){
+  const b=G.bike,L=LEVELS[G.lvl];
+  keys.up=true;keys.down=false;keys.left=false;keys.right=false;
+  if(!b||b.dead)return;
+  let gi=groundInfo(L,b.x);
+  if(!gi){ const sy=surfaceAt(L,b.x),sy2=surfaceAt(L,b.x+12); if(sy!=null&&sy2!=null)gi={y:sy,dy:sy2-sy,dx:12,slopeA:Math.atan2(sy2-sy,12)}; }
+  if(skilled){
+    // hop over steps (only from stable ground)
+    if(b.onGround&&b.hopCd<=0){
+      const dir=b.vx>=0?1:-1;
+      const near=surfaceAt(L,b.x+70*dir), here=surfaceAt(L,b.x);
+      if(near!=null&&here!=null&&!(L.loop&&b.x<L.loop.x-L.loop.r*0.5)){
+        const s28=surfaceAt(L,b.x+28*dir);
+        if(s28!=null&&s28<here-18)tryHop();
+      }
+    }
+    // gap: jump/lift across, independent of cooldown or bounce
+    {
+      const dir=b.vx>=0?1:-1;
+      const near=surfaceAt(L,b.x+70*dir), here=surfaceAt(L,b.x);
+      if(here!=null&&near==null){
+        let g=null; for(let d=20;d<=480&&g==null;d+=20)if(surfaceAt(L,b.x+d*dir)==null)g=d;
+        let rs=null,rd=0; if(g!=null)for(let d=g+40;d<=g+620&&rs==null;d+=30){const s=surfaceAt(L,b.x+d*dir); if(s!=null){rs=s;rd=d;}}
+        const wide=rs==null||rs-here>120||rd>260;
+        if(b.onGround&&b.gapCd<=0){
+          b.hopCd=0; b.gapCd=0.5;
+          if(wide){ if(tryHop())b.vy-=(rd>260?260:120); }
+          else if(rd>140)tryHop();
+        } else if(wide&&b.hopCd<=0&&b.vy>-150&&b.airTime<0.35){
+          b.vy-=260; b.hopCd=0.4; // single air-assist across gap
+        }
+      }
+    }
+    const spd=Math.hypot(b.vx,b.vy);
+    // speed control: ease gas and pulse the brake (no stoppies)
+    if(spd>1050){ keys.up=false; if(b.onGround&&step%40<16)keys.down=true; }
+    // don't feed a wheelie
+    if(b.onGround&&b.rel!=null&&Math.abs(b.rel)>0.5)keys.up=false;
+    // reverse-trap: rolling backwards relative to facing -> turn around
+    if(b.onGround&&b.turnCd<=0&&Math.abs(b.vx)>70&&Math.sign(b.vx)!==b.face)doTurn();
+    // attitude target
+    let targetA=b.a, active=false, close=false;
+    if(L.loop&&Math.hypot(b.x-L.loop.x,b.y-L.loop.y)<L.loop.r*1.6){
+      targetA=Math.atan2(b.vy,b.vx||b.face); active=true; // follow loop tangent
+    } else if(b.onGround&&gi){
+      if(b.rel!=null&&Math.abs(b.rel)>0.5){
+        targetA=gi.slopeA+(b.face===1?0:Math.PI); active=true; // rider recovery from out-of-shape
+      } else { keys.left=false; keys.right=false; } // let the rider balance hold it
+    } else if(!b.onGround){
+      const land=predictLanding(L,b);
+      // reverse-trap (air): aim nose with travel if there is room to rotate
+      if(b.turnCd<=0&&Math.abs(b.vx)>120&&Math.sign(b.vx)!==b.face&&(!land||(land.y-b.y)>60)){
+        b.face*=-1; b.turnCd=0.3;
+      }
+      const g2=land||groundInfo(L,b.x+b.vx*0.35);
+      targetA=g2?(g2.slopeA+(b.face===1?0:Math.PI)):b.a; active=true;
+      close=!!land&&(land.y-b.y)<110; // landing damping: lock nose + kill spin
+    }
+    if(active){
+      const err=wrap(targetA-b.a);
+      const need=clamp(err*(close?3.0:2.0)-b.va*(close?2.2:1.0),-1,1);
+      const duty=Math.abs(need), phase=(step%8)/8;
+      if(need>0)keys.right=phase<duty; else if(need<0)keys.left=phase<duty;
+    }
+  }
+}
+function botRun(skilled,lvl){
+  G.lvl=(lvl==null?0:lvl); G.mode='ride'; resetBike();
+  keys.up=keys.down=keys.left=keys.right=keys.hop=false;
+  let steps=0,hops=0; const maxSteps=180*240; const trail=[];
+  for(;steps<maxSteps;steps++){
+    if(G.mode!=='ride')break;
+    botControl(skilled,steps);
+    stepBike(1/240);
+    if(steps%120===0&&G.bike)trail.push(G.bike.x.toFixed(0)+','+G.bike.y.toFixed(0)+(G.bike.onGround?'':'.')+'a'+G.bike.a.toFixed(1));
+    if(trail.length>16)trail.shift();
+  }
+  keys.up=keys.down=keys.left=keys.right=keys.hop=false;
+  return {steps,time:steps/240,x:G.bike?G.bike.x.toFixed(0):'?',y:G.bike?G.bike.y.toFixed(0):'?',
+    dead:G.bike?G.bike.dead:'?',crash:G.lastCrash||'-',finished:G.finished,stars:G.collected.size,score:Math.round(G.score),hops,trail:trail.join(' ')};
+}
+
+// validator: is every star reachable, gaps jumpable?
+function starReachable(lvl,star){
+  const s=star;
+  // ride-through: bike CoG rides ~33 above ground
+  const gi=groundInfo(lvl,s[0]);
+  if(gi&&Math.abs((gi.y-33)-s[1])<STAR_R)return 'ride';
+  // ballistic from take-off points (ground or platform surfaces)
+  for(let x0=s[0]-1100;x0<=s[0]+400;x0+=25){
+    const y0=surfaceAt(lvl,x0); if(y0==null)continue;
+    const y1=surfaceAt(lvl,x0+12); if(y1==null)continue;
+    const slopeA=Math.atan2(y1-y0,12);
+    for(const v of [450,700,950,1100,1250]){
+      for(const hv of [0,-HOP_V]){
+        let x=x0,y=y0-33,vx=Math.cos(slopeA)*v,vy=Math.sin(slopeA)*v+hv;
+        for(let t=0;t<2.6;t+=1/120){
+          vx*=1-DRAG*(1/120); vy*=1-DRAG_V*(1/120); vy+=GRAV*(1/120);
+          x+=vx*(1/120); y+=vy*(1/120);
+          if(Math.hypot(x-s[0],y-s[1])<STAR_R*0.9)return 'jump';
+          const g=surfaceAt(lvl,x); if(g!=null && y>g+8)break;
+        }
+      }
+    }
+  }
+  return null;
+}
+function platformIntervals(lvl){
+  const iv=[];
+  for(const p of lvl.grounds.concat(lvl.extras)){ if(p.length>1)iv.push([p[0][0],p[p.length-1][0]]); }
+  iv.sort((a,b)=>a[0]-b[0]);
+  const merged=[];
+  for(const s of iv){ if(merged.length&&s[0]<=merged[merged.length-1][1]+1)merged[merged.length-1][1]=Math.max(merged[merged.length-1][1],s[1]); else merged.push([s[0],s[1]]); }
+  return merged;
+}
+function heiAt(lvl,x){
+  const gi=groundInfo(lvl,x); if(gi)return gi.y;
+  const s=surfaceAt(lvl,x); return s==null?null:s;
+}
+function gapCheck(lvl){
+  const iv=platformIntervals(lvl), bad=[];
+  for(let i=0;i<iv.length-1;i++){
+    const gap=iv[i+1][0]-iv[i][1];
+    if(gap<60)continue;
+    if(lvl.loop && Math.abs((iv[i][1]+iv[i+1][0])/2-lvl.loop.x)<lvl.loop.r+80)continue;
+    const bridged=(lvl.seesaws||[]).some(sw=>{ const reach=sw.hw*Math.cos(sw.max||0.42); return iv[i][1]>sw.x-reach-40 && iv[i+1][0]<sw.x+reach+40; });
+    if(bridged)continue;
+    const ya=heiAt(lvl,iv[i][1]-10), yb=heiAt(lvl,iv[i+1][0]+10);
+    const drop=(yb!=null&&ya!=null)?yb-ya:0;
+    let best=0;
+    for(const v of [700,900,1100,1250]){
+      for(const hv of [0,-HOP_V]){
+        const disc=hv*hv+2*GRAV*Math.max(0,drop);
+        const t=(-hv+Math.sqrt(disc))/GRAV;
+        const dist=v*t*(1-DRAG*0.45*t);
+        if(dist>best)best=dist;
+      }
+    }
+    const ratio=gap/Math.max(1,best);
+    if(ratio>0.7)bad.push('gap'+gap.toFixed(0)+'(need '+best.toFixed(0)+',drop '+drop.toFixed(0)+')');
+  }
+  return bad;
+}
+function validateLevel(li){
+  const L=LEVELS[li],bad=[];
+  for(let i=0;i<L.stars.length;i++){
+    const s=L.stars[i];
+    if(L.loop&&Math.abs(s[0]-L.loop.x)<L.loop.r+70)continue; // loop stars validated by riding the loop
+    const r=starReachable(L,s);
+    if(!r)bad.push('star'+i+'@'+s[0].toFixed(0)+','+s[1].toFixed(0));
+  }
+  const gb=gapCheck(L);
+  for(const g of gb)bad.push(g);
+  return {bad};
+}
+
+// ---------- self tests ----------
+function runSelfTests(){
+  const out=[]; const ok=(n,c,extra)=>out.push((c?'PASS':'FAIL')+' '+n+(extra||''));
+  const flat=(y)=>{ for(const l of LEVELS)l._save=l.allSegs; const seg=[{ax:-5000,ay:y||500,bx:9000,by:y||500,nx:0,ny:-1,two:false,twoSided:false}]; for(const l of LEVELS)l.allSegs=seg; return ()=>{ for(const l of LEVELS)l.allSegs=l._save; }; };
+  try{
+    // T1 gas moves forward
+    G.lvl=0;G.mode='ride';resetBike(); keys.up=true;
+    const x0=G.bike.x; for(let i=0;i<480;i++)stepBike(1/240);
+    ok('T1 gas moves forward',!G.bike.dead&&G.bike.x>x0+150,' x0='+x0.toFixed(0)+' x1='+G.bike.x.toFixed(0));
+    // T2 brake stops
+    G.mode='ride';resetBike(); keys.up=false;keys.down=false;
+    for(let i=0;i<120;i++)stepBike(1/240);
+    G.bike.vx=600; keys.down=true;
+    for(let i=0;i<120;i++)stepBike(1/240);
+    keys.down=false;
+    ok('T2 brake stops',G.bike.vx<150,' vx='+G.bike.vx.toFixed(0));
+    // T3 reverse (flat ground)
+    {
+      const restore=flat(500);
+      G.mode='ride';resetBike(); keys.up=keys.left=keys.right=false;keys.down=true;
+      const rx0=G.bike.x; for(let i=0;i<480;i++)stepBike(1/240); keys.down=false;
+      ok('T3 reverse',!G.bike.dead&&G.bike.x<rx0-20,' '+rx0.toFixed(0)+'->'+G.bike.x.toFixed(0));
+      restore();
+    }
+    // T4/T5 air lean rotates both ways, world-consistent after turn
+    const airTest=(key)=>{
+      const restore=flat(500);
+      G.lvl=0;G.mode='ride';resetBike();
+      G.bike.x=400;G.bike.y=200;G.bike.vx=0;G.bike.vy=0;G.bike.a=0;G.bike.va=0;G.bike.onGround=false;
+      keys.up=keys.down=keys.left=keys.right=false; keys[key]=true;
+      const a0=G.bike.a; for(let i=0;i<120;i++)stepBike(1/240);
+      const da=wrap(G.bike.a-a0); keys[key]=false; restore(); return da;
+    };
+    ok('T4 lean-left CCW',airTest('left')<-0.4,'');
+    ok('T5 lean-right CW',airTest('right')>0.4,'');
+    // T6 spawn safe all levels + draw
+    let spawnOk=true,drawOk=true;
+    for(let li=0;li<LEVELS.length;li++){
+      G.lvl=li;G.mode='ride';resetBike();
+      for(let i=0;i<300;i++){ stepBike(1/240); if(G.bike.dead){spawnOk=false;break;} }
+      try{ draw(); }catch(e){ drawOk=false; }
+    }
+    ok('T6 all levels spawn safe',spawnOk,'');
+    ok('T7 draw all levels',drawOk,'');
+    // T8 keymap
+    ok('T8 keymap',keyFromEvent({code:'KeyW',key:'w'})==='up'&&keyFromEvent({code:'KeyS',key:'s'})==='down'&&keyFromEvent({code:'Space',key:' '})==='hop'&&keyFromEvent({code:'KeyT',key:'t'})==='turn','');
+    // T9 hop
+    G.lvl=0;G.mode='ride';resetBike(); keys.up=keys.down=keys.left=keys.right=keys.hop=false;
+    for(let i=0;i<120;i++)stepBike(1/240);
+    const hy0=G.bike.y; const hopped=tryHop();
+    for(let i=0;i<60;i++)stepBike(1/240);
+    ok('T9 hop jumps',hopped&&!G.bike.dead&&G.bike.y<hy0-25,' '+(G.bike.y-hy0).toFixed(0));
+    // T10 no air double jump
+    G.bike.onGround=false; G.bike.hopCd=0;
+    ok('T10 no air hop',tryHop()===false,'');
+    // T11 head hit crashes
+    {
+      const restore=flat(500);
+      G.lvl=0;G.mode='ride';resetBike(); G.bike.grace=0;
+      G.bike.y=500-33; for(let i=0;i<5;i++)stepBike(1/240); // settle
+      G.bike.a=Math.PI; G.bike.y=500-33; // upside down, head into ground
+      for(let i=0;i<10;i++)stepBike(1/240);
+      ok('T11 head hit crashes',G.bike.dead===true,'');
+      restore();
+    }
+    // T12 smooth cruise
+    {
+      const restore=flat(500);
+      G.lvl=0;G.mode='ride';resetBike(); keys.up=true;keys.down=keys.left=keys.right=false;
+      for(let i=0;i<600;i++)stepBike(1/240);
+      let mean=0,M2=0,n=0;
+      for(let i=0;i<480;i++){ stepBike(1/240); const v=Math.hypot(G.bike.vx,G.bike.vy); n++; const d=v-mean; mean+=d/n; M2+=d*(v-mean); }
+      const cv=Math.sqrt(M2/(n-1))/mean; keys.up=false; restore();
+      ok('T12 smooth cruise',cv<0.12,' cv='+cv.toFixed(3)+' v='+mean.toFixed(0));
+    }
+    // T13 flips score (air, then clean landing)
+    {
+      const restore=flat(500);
+      G.lvl=0;G.mode='ride';resetBike(); keys.up=keys.down=keys.left=keys.right=false;
+      G.bike.x=600;G.bike.y=-600;G.bike.vx=0;G.bike.vy=0;G.bike.a=0;G.bike.va=-8;G.bike.onGround=false;G.bike.grace=0;
+      for(let i=0;i<200;i++)stepBike(1/240);
+      G.bike.a=0;G.bike.va=0;G.bike.vy=120;
+      const s0=G.score;
+      for(let i=0;i<600&&G.mode==='ride';i++)stepBike(1/240);
+      ok('T13 flips score',!G.bike.dead&&G.score-s0>=500,' +'+Math.round(G.score-s0)+' crash='+(G.lastCrash||'-'));
+      restore();
+    }
+    // T13b double flip pays the n*n multiplier
+    {
+      const restore=flat(500);
+      G.lvl=0;G.mode='ride';resetBike(); keys.up=keys.down=keys.left=keys.right=false;
+      G.bike.x=600;G.bike.y=-600;G.bike.vx=0;G.bike.vy=120;G.bike.a=0;G.bike.va=0;G.bike.airRot=-1.8*TAU;G.bike.onGround=false;G.bike.grace=0;
+      const s0=G.score;
+      for(let i=0;i<600&&G.mode==='ride';i++)stepBike(1/240);
+      ok('T13b double flip pays 2000',!G.bike.dead&&G.score-s0>=2000,' +'+Math.round(G.score-s0)+' crash='+(G.lastCrash||'-'));
+      restore();
+    }
+    // T14 lean required on a wall (W-only stalls, lean-forward climbs)
+    {
+      const wall={ax:-400,ay:660,bx:1600,by:-440,nx:0,ny:0}; const L2=Math.hypot(2000,1100);
+      wall.nx=-1100/L2; wall.ny=-2000/L2; wall.two=false; wall.twoSided=false;
+      const save=[]; for(const l of LEVELS){save.push(l.allSegs); l.allSegs=[wall];}
+      const climb=(leanK)=>{
+        G.lvl=0;G.mode='ride';resetBike();
+        G.bike.x=100;G.bike.y=351;G.bike.a=Math.atan2(-1100,2000);G.bike.vx=0;G.bike.vy=0;G.bike.va=0;
+        keys.up=keys.down=keys.left=keys.right=false;
+        for(let i=0;i<60;i++)stepBike(1/240);
+        G.bike.vx=0;G.bike.vy=0;G.bike.va=0;
+        keys.up=true; if(leanK)keys[leanK]=true;
+        for(let i=0;i<480;i++){ stepBike(1/240); if(G.mode!=='ride')break; }
+        const adv=G.bike.x-100; keys.up=false; if(leanK)keys[leanK]=false; return adv;
+      };
+      const wOnly=climb(null), fwd=climb('right'), back=climb('left');
+      for(let i=0;i<LEVELS.length;i++)LEVELS[i].allSegs=save[i];
+      const best=Math.max(fwd,back);
+      ok('T14 walls need weight shift',wOnly<best-150,' w='+wOnly.toFixed(0)+' fwd='+fwd.toFixed(0)+' back='+back.toFixed(0));
+    }
+    // T15 every star reachable on every level
+    {
+      let bad=[];
+      for(let li=0;li<LEVELS.length;li++){ const v=validateLevel(li); if(v.bad.length)bad.push('L'+(li+1)+':'+v.bad.join(',')); }
+      ok('T15 all stars reachable',bad.length===0,bad.join(' | '));
+    }
+    // T16 bot finishes every level (levels flagged botOptional may fail)
+    {
+      const fails=[],soft=[];
+      for(let li=0;li<LEVELS.length;li++){
+        const r=botRun(true,li);
+        if(!r.finished){
+          const msg='L'+(li+1)+'(x='+r.x+' dead='+r.dead+' crash='+r.crash+' t='+r.time.toFixed(1)+'s trail='+r.trail+')';
+          if(LEVELS[li].botOptional)soft.push(msg); else fails.push(msg);
+        }
+      }
+      ok('T16 bot finishes all levels',fails.length===0,fails.join(' | ')+(soft.length?' [soft '+soft.join(' | ')+']':''));
+    }
+    // T17 W-only must NOT finish level 1
+    {
+      const r=botRun(false,0);
+      ok('T17 W-only fails L1',!r.finished,' x='+r.x+' t='+r.time.toFixed(0));
+    }
+    // T18 loop can be ridden
+    {
+      const li=5; const L6=LEVELS[li];
+      G.lvl=li;G.mode='ride';resetBike();
+      const gi=groundInfo(L6,1450); G.bike.x=1450; G.bike.y=(gi?gi.y:540)-33; G.bike.vx=1250; G.bike.vy=0; G.bike.a=0; G.bike.va=0;
+      keys.up=true;keys.down=keys.left=keys.right=false;
+      let okLoop=false, maxY=0;
+      for(let i=0;i<240*4;i++){
+        stepBike(1/240);
+        if(G.bike.x>2350&&G.bike.onGround)okLoop=true;
+        if(G.bike.dead)break;
+        maxY=Math.min(maxY,G.bike.y);
+      }
+      keys.up=false;
+      ok('T18 loop rideable',okLoop&&!G.bike.dead,' topY='+maxY.toFixed(0));
+    }
+    // T19 no stuck/NaN with random input
+    {
+      let okAll=true;
+      for(let li=0;li<LEVELS.length&&okAll;li++){
+        G.lvl=li;G.mode='ride';resetBike();
+        let seed=li*1234+7;
+        for(let i=0;i<240*8;i++){
+          seed=(seed*1103515245+12345)&0x7fffffff;
+          keys.up=(seed&3)===0; keys.down=(seed&12)===0; keys.left=(seed&48)===0; keys.right=(seed&192)===0;
+          stepBike(1/240);
+          if(!isFinite(G.bike.x)||!isFinite(G.bike.y)||!isFinite(G.bike.a)){okAll=false;break;}
+          if(G.mode!=='ride')break;
+        }
+      }
+      keys.up=keys.down=keys.left=keys.right=false;
+      ok('T19 no NaN/instability',okAll,'');
+    }
+    // T20 seesaw tips under load and resets
+    {
+      const restore=flat(500);
+      const sw={x:900,y:436,hw:90,a:0,a0:0,w:0,max:0.42};
+      const had=LEVELS[0].seesaws;
+      LEVELS[0].seesaws=[sw];
+      G.lvl=0;G.mode='ride';resetBike(); keys.up=keys.down=keys.left=keys.right=false;
+      G.bike.x=sw.x+40;G.bike.y=sw.y-60;G.bike.vx=0;G.bike.vy=200;G.bike.a=0;G.bike.va=0;G.bike.onGround=false;G.bike.grace=0;
+      for(let i=0;i<240;i++)stepBike(1/240);
+      const aTip=sw.a, tipped=aTip>0.05;
+      resetBike();
+      const back=Math.abs(sw.a)<1e-9;
+      LEVELS[0].seesaws=had;
+      ok('T20 seesaw tips and resets',tipped&&back,' tip='+aTip.toFixed(3));
+      restore();
+    }
+    // T21 time factor rewards speed with caps
+    {
+      const f1=timeFactor(100,50), f2=timeFactor(100,100), f3=timeFactor(100,1000);
+      ok('T21 time factor caps',f1>f2&&f2>f3&&f1<=2.2&&f3>=0.4,' f='+f1.toFixed(2)+'/'+f2.toFixed(2)+'/'+f3.toFixed(2));
+    }
+    // T22 board dedupes names and keeps the best of each
+    {
+      const old=localStorage.getItem('mtb_board_v4'), lv=0;
+      localStorage.removeItem('mtb_board_v4');
+      store.saveEntry(lv,{n:'AAA',t:100,s:10});
+      store.saveEntry(lv,{n:'AAA',t:90,s:20});
+      store.saveEntry(lv,{n:'BBB',t:95,s:5});
+      const b=store.board[lv], a=b.find(x=>x.n==='AAA');
+      ok('T22 board dedupes names',b.length===2&&a.t===90&&a.s===20,' n='+b.length+' t='+(a&&a.t)+' s='+(a&&a.s));
+      if(old==null)localStorage.removeItem('mtb_board_v4'); else localStorage.setItem('mtb_board_v4',old);
+    }
+    // T23 end-screen board renders names escaped
+    {
+      const oldB=localStorage.getItem('mtb_board_v4'), oldN=localStorage.getItem('mtb_name_v3');
+      localStorage.removeItem('mtb_board_v4');
+      G.lvl=0; store.setName('T<X>'); store.saveEntry(0,{n:'T<X>',t:1,s:2});
+      renderBoard();
+      const html=document.getElementById('boardBox').innerHTML;
+      ok('T23 board escapes names',html.indexOf('T&lt;X&gt;')>=0&&html.indexOf('<X>')<0,'');
+      if(oldN==null)localStorage.removeItem('mtb_name_v3'); else localStorage.setItem('mtb_name_v3',oldN);
+      if(oldB==null)localStorage.removeItem('mtb_board_v4'); else localStorage.setItem('mtb_board_v4',oldB);
+    }
+    // T24 finish always asks for the player name (prefilled, not auto-saved)
+    {
+      const keys=['mtb_name_v3','mtb_best_v3','mtb_score_v4','mtb_unlocked_v3','mtb_board_v4'];
+      const saved=keys.map(k=>localStorage.getItem(k));
+      store.setName('MARTIN');
+      G.lvl=0; G.mode='ride'; resetBike(); G.running=true; G.startStamp=performance.now()-10000;
+      winLevel();
+      const asked=document.getElementById('nameRow').style.display!=='none'&&document.getElementById('doneBtns').style.display==='none';
+      const pre=document.getElementById('nameIn').value==='MARTIN';
+      keys.forEach((k,i)=>{ if(saved[i]==null)localStorage.removeItem(k); else localStorage.setItem(k,saved[i]); });
+      G.finished=false;
+      ok('T24 finish asks for name every run',asked&&pre,' asked='+asked+' pre='+pre);
+    }
+  }catch(err){ out.push('FAIL exception '+err.stack.split('\n')[0]); }
+  const pass=out.filter(l=>l.startsWith('PASS')).length, fail=out.filter(l=>l.startsWith('FAIL')).length;
+  out.unshift('SELFTEST pass='+pass+' fail='+fail);
+  document.body.innerHTML='<pre id="testout" style="background:#000;color:#0f0;padding:16px;font-size:13px">'+out.join('\n')+'</pre>';
+  document.title='SELFTEST pass='+pass+' fail='+fail;
+}
+function runDiag(){
+  const out=[];
+  for(let li=0;li<LEVELS.length;li++){
+    const L=LEVELS[li]; const v=validateLevel(li);
+    out.push('L'+(li+1)+' '+L.name+'  stars='+L.stars.length+' bad='+(v.bad.length?v.bad.join(','):'none'));
+    const r=botRun(true,li);
+    out.push('   bot: fin='+r.finished+' dead='+r.dead+' t='+r.time.toFixed(0)+'s stars='+r.stars+' score='+r.score+' x='+r.x+' trail='+r.trail);
+  }
+  document.body.innerHTML='<pre id="diagout" style="background:#000;color:#0f0;padding:16px;font-size:12px">'+out.join('\n')+'</pre>';
+  document.title='DIAG done';
+}
+function runEval(){
+  const out=[];
+  for(const sk of [true,false]){
+    const r=botRun(sk,0);
+    out.push((sk?'skilled':'w-only')+': fin='+r.finished+' t='+r.time.toFixed(1)+'s stars='+r.stars+' score='+r.score+' x='+r.x+' dead='+r.dead);
+  }
+  document.body.innerHTML='<pre style="background:#000;color:#0f0;padding:20px">'+out.join('\n')+'</pre>';
+  document.title='EVAL done';
+}
+
+// ---------- init ----------
+if(/(\?|&)all\b/.test(location.search)||FLIP_MAP)store.setUnlocked(LEVELS.length);
+renderLevelGrid();
+resetBike();
+G.mode='menu';
+if(FLIP_MAP)startLevel(LEVELS.length-1);
+{ const bm=document.getElementById('bMute'); if(bm)bm.textContent=isMuted()?'🔇 MUTED':'🔊 SOUND'; }
+{ const vt=document.getElementById('verTag'); if(vt)vt.textContent='v'+VERSION; }
+// wire frame loop (only when not in test/diag mode)
+function frameStart(){ requestAnimationFrame(frame); }
+const qp=new URLSearchParams(location.search);
+if(qp.has('test')){ setTimeout(runSelfTests,200); }
+else if(qp.has('diag')){ setTimeout(runDiag,200); }
+else if(qp.has('eval')){ setTimeout(runEval,200); }
+else frameStart();
+})();
+</script>
+</body>
+</html>

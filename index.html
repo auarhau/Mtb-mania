@@ -138,7 +138,7 @@ h1 span{background:linear-gradient(90deg,#7CFC00,#22d3ee,#a78bfa);-webkit-backgr
 // MTB MANIA — full rewrite. Rigid-body bike with suspension wheels,
 // tire forces (drive/brake/grip), rider weight-shift torque, validated levels.
 // =====================================================================
-const VERSION='0.8.0';
+const VERSION='0.8.1';
 const FLIP_MAP=/(\?|&)flip\b/.test(location.search);
 const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
 let W=0,H=0,DPR=1;
@@ -198,7 +198,18 @@ function lbReq(path,opt){
     return fetch(LB.url+'/rest/v1/'+path,o).then(r=>{clearTimeout(t);return r},()=>{clearTimeout(t);return null});
   }catch(e){return Promise.resolve(null)}
 }
-async function lbTop(lvl){ const r=await lbReq('scores?lvl=eq.'+lvl+'&score=gt.0&select=name,score&order=score.desc&limit=30'); if(!r||!r.ok)return null; try{return await r.json()}catch(e){return null} }
+async function lbTop(lvl){
+  const [rt,rs]=await Promise.all([
+    lbReq('scores?lvl=eq.'+lvl+'&time_ms=gt.0&select=name,time_ms&order=time_ms.asc&limit=30'),
+    lbReq('scores?lvl=eq.'+lvl+'&score=gt.0&select=name,score&order=score.desc&limit=30')
+  ]);
+  if(!rt||!rt.ok||!rs||!rs.ok)return null;
+  try{
+    const t=await rt.json(), s=await rs.json();
+    const dedupe=a=>{ const seen={}, out=[]; a.forEach(r=>{ if(!seen[r.name]){seen[r.name]=1; out.push(r);} }); return out.slice(0,5); };
+    return {fast:dedupe(t).map(r=>({n:r.name,t:r.time_ms/1000})), score:dedupe(s).map(r=>({n:r.name,s:r.score}))};
+  }catch(e){return null}
+}
 async function lbSubmit(name,lvl,score,time){ const r=await lbReq('scores',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({name,lvl,score,time_ms:time})}); return !!(r&&r.ok); }
 // ---------- physics constants ----------
 const GRAV=1500, MAX_V=1500, MAX_W=11;
@@ -843,7 +854,7 @@ function winLevel(){
   const isBest=store.best[G.lvl]==null||G.time<store.best[G.lvl];
   store.setBest(G.lvl,G.time);
   const raw=Math.floor(G.score), tf=timeFactor(LEVELS[G.lvl].par,G.time), sc=Math.max(0,Math.round(raw*tf));
-  G.lastWin={raw,sc,tf}; G.gLvl=-1; G.gTop=null;
+  G.lastWin={raw,sc,tf}; G.gLvl=-1; G.gFast=null; G.gScore=null;
   const isBestSc=store.setBestScore(G.lvl,sc);
   store.setUnlocked(Math.min(LEVELS.length,G.lvl+2));
   blip(523,0.15,'triangle',0.15);setTimeout(()=>blip(659,0.15,'triangle',0.15),140);setTimeout(()=>blip(784,0.3,'triangle',0.16),280);
@@ -886,30 +897,24 @@ function renderBoard(){
   const row=(a,i,v)=>'<div style="'+(a.n===store.name?'color:var(--gold);font-weight:700':'')+'"><span style="opacity:.6">'+(i+1)+'.</span> '+escHtml(a.n)+'<span style="float:right;opacity:.85">'+v+'</span></div>';
   const byT=list.slice().sort((a,b)=>a.t-b.t).slice(0,5), byS=list.slice().sort((a,b)=>b.s-a.s).slice(0,5);
   const col=(title,arr,f)=>'<div style="min-width:200px;text-align:left"><div class="sub" style="font-size:11px;opacity:.7">'+title+'</div>'+(arr.length?arr.map((a,i)=>row(a,i,f(a))).join(''):'<div style="opacity:.5">—</div>')+'</div>';
-  const gcol=G.gTop?col('GLOBAL TOP 10',G.gTop,a=>String(a.s)):'<div style="min-width:200px;text-align:left"><div class="sub" style="font-size:11px;opacity:.7">GLOBAL TOP 10</div><div style="opacity:.5">'+(NETOK?'…':'offline')+'</div></div>';
-  box.innerHTML='<div style="display:flex;gap:30px;justify-content:center;flex-wrap:wrap">'+col('FASTEST',byT,a=>fmt(a.t))+col('TOP SCORE',byS,a=>String(a.s))+gcol+'</div>';
+  const gcol=(G.gFast&&G.gScore)?col('GLOBAL FASTEST',G.gFast,a=>fmt(a.t))+col('GLOBAL TOP SCORE',G.gScore,a=>String(a.s)):col('FASTEST',byT,a=>fmt(a.t))+col('TOP SCORE',byS,a=>String(a.s));
+  box.innerHTML='<div style="display:flex;gap:30px;justify-content:center;flex-wrap:wrap">'+gcol+'</div>';
   loadGlobal();
 }
 async function loadGlobal(){
   if(!NETOK)return;
   const lv=G.lvl;
   if(G.gLvl===lv)return;
-  G.gLvl=lv; G.gTop=null;
-  const list=await lbTop(lv);
+  G.gLvl=lv; G.gFast=null; G.gScore=null;
+  const top=await lbTop(lv);
   if(G.gLvl!==lv)return;
-  if(list){
-    const m={};
-    list.forEach(r=>{ const k=r.name; if(!m[k]||r.score>m[k].score)m[k]=r; });
-    G.gTop=Object.values(m).sort((a,b)=>b.score-a.score).slice(0,10).map(r=>({n:r.name,s:r.score}));
-  }
-  renderBoard();
+  if(top){ G.gFast=top.fast; G.gScore=top.score; renderBoard(); }
 }
 async function globalSubmit(){
   if(!NETOK||!store.name)return;
-  const sc=Math.floor(G.lastWin?G.lastWin.sc:G.score);
-  if(store.bestScore[G.lvl]!==sc)return;
-  if(!await lbSubmit(store.name,G.lvl,sc,Math.max(0,Math.round(G.time*1000))))return;
-  G.gLvl=-1;
+  const lv=G.lvl, s=Math.floor(store.bestScore[lv]||0), t=Math.max(0,Math.round((store.best[lv]||G.time||0)*1000));
+  if(!await lbSubmit(store.name,lv,s,t))return;
+  G.gLvl=-1; G.gFast=null; G.gScore=null;
   toast('🌍 '+store.name+' on the global board');
   loadGlobal();
 }

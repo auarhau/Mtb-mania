@@ -110,7 +110,6 @@ h1 span{background:linear-gradient(90deg,#7CFC00,#22d3ee,#a78bfa);-webkit-backgr
       <span class="kbd">▼ / S</span> brake &nbsp;
       <span class="kbd">◀ / A</span> <span class="kbd">▶ / D</span> lean &nbsp;
       <span class="kbd">Space</span> hop &nbsp;
-      <span class="kbd">T</span> turn &nbsp;
       <span class="kbd">R</span> restart &nbsp;
       <span class="kbd">M</span> mute
     </div>
@@ -128,7 +127,7 @@ h1 span{background:linear-gradient(90deg,#7CFC00,#22d3ee,#a78bfa);-webkit-backgr
       • <b>Air:</b> hold a lean to rotate — full rotation on landing = flip points. Land roughly along the slope or you slam.<br>
       • <b>Style pays:</b> flips +500 each (less for repeats); the nearest whole rotation counts, so 2.8 spins = TRIPLE (2000/4500/8000 for doubles/triples/quads), wheelies/stoppies bank points, big air +150.<br>
       • <b>Time matters:</b> your final score is the run score × par/time — fast runs with tricks beat long farming runs.<br>
-      • <b>T</b> turns you around. <b>M</b> mutes. Best time and score are saved per level; saving your name also posts your best to the global board when online.
+      • <b>M</b> mutes. Best time and score are saved per level; saving your name also posts your best to the global board when online.
     </div>
   </div>
 </div>
@@ -158,7 +157,7 @@ h1 span{background:linear-gradient(90deg,#7CFC00,#22d3ee,#a78bfa);-webkit-backgr
 // MTB MANIA — full rewrite. Rigid-body bike with suspension wheels,
 // tire forces (drive/brake/grip), rider weight-shift torque, validated levels.
 // =====================================================================
-const VERSION='0.9.2';
+const VERSION='0.9.3';
 const FLIP_MAP=/(\?|&)flip\b/.test(location.search);
 const TOUCH=!!(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches);
 const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
@@ -1212,7 +1211,6 @@ const KEYMAP={ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',ArrowLeft:'lef
 function keyFromEvent(e){
   if(KEYMAP[e.code])return KEYMAP[e.code];
   if(e.code==='Space'||e.code==='ShiftLeft'||e.code==='ShiftRight'||e.code==='KeyJ')return 'hop';
-  if(e.code==='KeyT'||e.code==='KeyX')return 'turn';
   const k=(e.key||'').toLowerCase();
   if(k==='w'||k==='arrowup')return 'up';
   if(k==='s'||k==='arrowdown')return 'down';
@@ -1231,7 +1229,6 @@ function doTurn(){
 window.addEventListener('keydown',e=>{
   if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;
   const k=keyFromEvent(e);
-  if(k==='turn'){ e.preventDefault(); if(!e.repeat){audioInit();doTurn();} return; }
   if(k==='hop'){ e.preventDefault(); if(!e.repeat){audioInit();keys.hop=true;refreshKeysHud();tryHop();} return; }
   if(k){keys[k]=true;e.preventDefault();audioInit();refreshKeysHud();}
   if(e.code==='KeyR'||e.key==='r'||e.key==='R'){ if(G.mode!=='menu'){document.getElementById('done').classList.add('hidden');G.mode='ride';resetBike();} }
@@ -1239,7 +1236,7 @@ window.addEventListener('keydown',e=>{
   if(e.code==='KeyN'||e.code==='Enter'){ if(G.mode==='win'&&document.getElementById('nameRow').style.display==='none')document.getElementById('bNext').click(); }
   if(e.code==='KeyL'||e.code==='Escape'){ showMenu(); }
 });
-window.addEventListener('keyup',e=>{ const k=keyFromEvent(e); if(k==='hop'){keys.hop=false;refreshKeysHud();return;} if(k==='turn')return; if(k){keys[k]=false;refreshKeysHud();} });
+window.addEventListener('keyup',e=>{ const k=keyFromEvent(e); if(k==='hop'){keys.hop=false;refreshKeysHud();return;} if(k){keys[k]=false;refreshKeysHud();} });
 window.addEventListener('blur',()=>{ keys.up=keys.down=keys.left=keys.right=keys.hop=false; refreshKeysHud(); });
 function bindTouch(id,k){ const el=document.getElementById(id); if(!el)return;
   const on=e=>{e.preventDefault();audioInit();keys[k]=true;refreshKeysHud();};
@@ -1484,7 +1481,7 @@ function runSelfTests(){
     ok('T6 all levels spawn safe',spawnOk,'');
     ok('T7 draw all levels',drawOk,'');
     // T8 keymap
-    ok('T8 keymap',keyFromEvent({code:'KeyW',key:'w'})==='up'&&keyFromEvent({code:'KeyS',key:'s'})==='down'&&keyFromEvent({code:'Space',key:' '})==='hop'&&keyFromEvent({code:'KeyT',key:'t'})==='turn','');
+    ok('T8 keymap',keyFromEvent({code:'KeyW',key:'w'})==='up'&&keyFromEvent({code:'KeyS',key:'s'})==='down'&&keyFromEvent({code:'Space',key:' '})==='hop'&&keyFromEvent({code:'KeyT',key:'t'})===null,'');
     // T9 hop
     G.lvl=0;G.mode='ride';resetBike(); keys.up=keys.down=keys.left=keys.right=keys.hop=false;
     for(let i=0;i<120;i++)stepBike(1/240);

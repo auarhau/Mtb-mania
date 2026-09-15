@@ -108,7 +108,7 @@ h1 span{background:linear-gradient(90deg,#7CFC00,#22d3ee,#a78bfa);-webkit-backgr
       • <b>Air:</b> hold a lean to rotate — full rotation on landing = flip points. Land roughly along the slope or you slam.<br>
       • <b>Style pays:</b> flips +500 each (less for repeats); the nearest whole rotation counts, so 2.8 spins = TRIPLE (2000/4500/8000 for doubles/triples/quads), wheelies/stoppies bank points, big air +150.<br>
       • <b>Time matters:</b> your final score is the run score × par/time — fast runs with tricks beat long farming runs.<br>
-      • <b>T</b> turns you around. <b>M</b> mutes. Best time and score are saved per level, and your name goes on the local highscore board.
+      • <b>T</b> turns you around. <b>M</b> mutes. Best time and score are saved per level; saving your name also posts your best to the global board when online.
     </div>
   </div>
 </div>
@@ -138,7 +138,7 @@ h1 span{background:linear-gradient(90deg,#7CFC00,#22d3ee,#a78bfa);-webkit-backgr
 // MTB MANIA — full rewrite. Rigid-body bike with suspension wheels,
 // tire forces (drive/brake/grip), rider weight-shift torque, validated levels.
 // =====================================================================
-const VERSION='0.7.3';
+const VERSION='0.8.0';
 const FLIP_MAP=/(\?|&)flip\b/.test(location.search);
 const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
 let W=0,H=0,DPR=1;
@@ -187,6 +187,19 @@ const store={
   }
 };
 try{['mtb_best_v2','mtb_score_v2','mtb_unlocked_v2','mtb_score_v3','mtb_board_v3'].forEach(k=>localStorage.removeItem(k));}catch(e){}
+// ---------- global highscore (Supabase REST, public anon key) ----------
+const LB={url:'https://vrnqltszzfzamlwhzfwq.supabase.co',key:'sb_publishable_xvWuVELmk9HEgKlKFGR3OQ_EVh_dOtC'};
+const NETOK=!/(\?|&)(test|diag|eval)\b/.test(location.search);
+function lbReq(path,opt){
+  try{
+    const o=Object.assign({},opt), c=new AbortController(), t=setTimeout(()=>c.abort(),4000);
+    o.headers=Object.assign({apikey:LB.key,Authorization:'Bearer '+LB.key,'Content-Type':'application/json'},o.headers||{});
+    o.signal=c.signal;
+    return fetch(LB.url+'/rest/v1/'+path,o).then(r=>{clearTimeout(t);return r},()=>{clearTimeout(t);return null});
+  }catch(e){return Promise.resolve(null)}
+}
+async function lbTop(lvl){ const r=await lbReq('scores?lvl=eq.'+lvl+'&score=gt.0&select=name,score&order=score.desc&limit=30'); if(!r||!r.ok)return null; try{return await r.json()}catch(e){return null} }
+async function lbSubmit(name,lvl,score,time){ const r=await lbReq('scores',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({name,lvl,score,time_ms:time})}); return !!(r&&r.ok); }
 // ---------- physics constants ----------
 const GRAV=1500, MAX_V=1500, MAX_W=11;
 const WHEEL_R=16, WHEEL_X=30, WHEEL_Y=17;      // contact point ~33 below CoG
@@ -830,7 +843,7 @@ function winLevel(){
   const isBest=store.best[G.lvl]==null||G.time<store.best[G.lvl];
   store.setBest(G.lvl,G.time);
   const raw=Math.floor(G.score), tf=timeFactor(LEVELS[G.lvl].par,G.time), sc=Math.max(0,Math.round(raw*tf));
-  G.lastWin={raw,sc,tf};
+  G.lastWin={raw,sc,tf}; G.gLvl=-1; G.gTop=null;
   const isBestSc=store.setBestScore(G.lvl,sc);
   store.setUnlocked(Math.min(LEVELS.length,G.lvl+2));
   blip(523,0.15,'triangle',0.15);setTimeout(()=>blip(659,0.15,'triangle',0.15),140);setTimeout(()=>blip(784,0.3,'triangle',0.16),280);
@@ -856,6 +869,7 @@ function saveBoardEntry(){
   const sc=G.lastWin?G.lastWin.sc:Math.floor(G.score);
   store.saveEntry(G.lvl,{n:store.name,t:G.time,s:sc});
   renderBoard(); const box=document.getElementById('boardBox'); if(box)box.style.display='';
+  globalSubmit();
 }
 function submitName(){
   const el=document.getElementById('nameIn');
@@ -871,8 +885,33 @@ function renderBoard(){
   const list=store.board[G.lvl]||[];
   const row=(a,i,v)=>'<div style="'+(a.n===store.name?'color:var(--gold);font-weight:700':'')+'"><span style="opacity:.6">'+(i+1)+'.</span> '+escHtml(a.n)+'<span style="float:right;opacity:.85">'+v+'</span></div>';
   const byT=list.slice().sort((a,b)=>a.t-b.t).slice(0,5), byS=list.slice().sort((a,b)=>b.s-a.s).slice(0,5);
-  const col=(title,arr,f)=>'<div style="min-width:200px;text-align:left"><div class="sub" style="font-size:11px;opacity:.7">'+title+'</div>'+arr.map((a,i)=>row(a,i,f(a))).join('')+'</div>';
-  box.innerHTML='<div style="display:flex;gap:30px;justify-content:center;flex-wrap:wrap">'+col('FASTEST',byT,a=>fmt(a.t))+col('TOP SCORE',byS,a=>String(a.s))+'</div>';
+  const col=(title,arr,f)=>'<div style="min-width:200px;text-align:left"><div class="sub" style="font-size:11px;opacity:.7">'+title+'</div>'+(arr.length?arr.map((a,i)=>row(a,i,f(a))).join(''):'<div style="opacity:.5">—</div>')+'</div>';
+  const gcol=G.gTop?col('GLOBAL TOP 10',G.gTop,a=>String(a.s)):'<div style="min-width:200px;text-align:left"><div class="sub" style="font-size:11px;opacity:.7">GLOBAL TOP 10</div><div style="opacity:.5">'+(NETOK?'…':'offline')+'</div></div>';
+  box.innerHTML='<div style="display:flex;gap:30px;justify-content:center;flex-wrap:wrap">'+col('FASTEST',byT,a=>fmt(a.t))+col('TOP SCORE',byS,a=>String(a.s))+gcol+'</div>';
+  loadGlobal();
+}
+async function loadGlobal(){
+  if(!NETOK)return;
+  const lv=G.lvl;
+  if(G.gLvl===lv)return;
+  G.gLvl=lv; G.gTop=null;
+  const list=await lbTop(lv);
+  if(G.gLvl!==lv)return;
+  if(list){
+    const m={};
+    list.forEach(r=>{ const k=r.name; if(!m[k]||r.score>m[k].score)m[k]=r; });
+    G.gTop=Object.values(m).sort((a,b)=>b.score-a.score).slice(0,10).map(r=>({n:r.name,s:r.score}));
+  }
+  renderBoard();
+}
+async function globalSubmit(){
+  if(!NETOK||!store.name)return;
+  const sc=Math.floor(G.lastWin?G.lastWin.sc:G.score);
+  if(store.bestScore[G.lvl]!==sc)return;
+  if(!await lbSubmit(store.name,G.lvl,sc,Math.max(0,Math.round(G.time*1000))))return;
+  G.gLvl=-1;
+  toast('🌍 '+store.name+' on the global board');
+  loadGlobal();
 }
 function GROUNDGUESS(li){ const gi=groundInfo(LEVELS[li],LEVELS[li].finish.x); return (gi?gi.y:400)-30; }
 
